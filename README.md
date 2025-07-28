@@ -23,8 +23,8 @@ Designed to support compliance with replay service policies and mitigate copyrig
 
 ## 🧠 Technologies
 
-* **YAMNet** (by Google): audio classification model for detecting music vs. speech
-* **Silero VAD**: fast and lightweight voice activity detection model
+* **[YAMNet](https://github.com/tensorflow/models/tree/master/research/audioset/yamnet)** (by Google): audio classification model for detecting music vs. speech
+* **[Silero-VAD](https://github.com/snakers4/silero-vad?tab=readme-ov-file)**: fast and lightweight voice activity detection model
 
 ---
 
@@ -82,7 +82,7 @@ Licensed under the **Apache License 2.0**. See [`LICENSE`](./LICENSE) for detail
 
 ## 📝 Notes
 
-* Music detection is handled by YAMNet audio classifier.
-* Voice regions are segmented using Silero VAD.
+* Music detection is handled by [YAMNet](https://github.com/tensorflow/models/tree/master/research/audioset/yamnet) audio classifier.
+* Voice regions are segmented using [Silero-VAD](https://github.com/snakers4/silero-vad?tab=readme-ov-file).
 * Speech with background music is preserved intentionally.
 * Currently designed for local or internal use on Windows (FastAPI works fine).
