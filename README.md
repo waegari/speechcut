@@ -8,16 +8,16 @@ Designed to support compliance with replay service policies and mitigate copyrig
 ## 🔧 Features
 
 * 🎛️ **Standalone music removal**
-  Removes all music-only sections from radio broadcast audio files.
+  - Removes all music-only sections from radio broadcast audio files.
 
 * 🗣️ **Speech preservation**
-  Keeps DJ talk, narration, interviews, and announcements intact.
+  - Keeps DJ talk, narration, interviews, and announcements intact.
 
 * 🎵 **Speech with background music**
-  Background music under speech is **not** removed — treated as part of the speech content.
+  - Background music under speech is **not** removed — treated as part of the speech content.
 
 * ⚡ **Automatic processing**
-  Fully automated pipeline using audio classification and voice activity detection.
+  - Fully automated pipeline using audio classification and voice activity detection.
 
 ---
 
