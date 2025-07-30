@@ -1,0 +1,10 @@
+# audio processing
+ffmpeg-python
+
+# speech detection
+pysilero-vad
+tensorflow
+numpy
+
+# env
+python-dotenv
