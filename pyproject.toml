@@ -1,0 +1,16 @@
+[build-system]
+requires = ['setuptools>=70']
+build-backend = 'setuptools.build_meta']
+
+[project]
+name = 'speechcut'
+version = '0.0.1'
+description = 'Periodic speech extraction with resident worker'
+requires-python = '>=3.10'
+readme = 'README.md'
+
+[tool.setuptools.packages.find]
+where = 'src'
+
+[project.scripts]
+speechcut = 'speechcut.__main__:main'
