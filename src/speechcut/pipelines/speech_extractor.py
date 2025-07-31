@@ -1,9 +1,11 @@
-import subprocess
+import subprocess, logging
 from pathlib import Path
 from typing import Union
 
 from speechcut.audio.processor import AudioProcessor
 from speechcut.config.settings import settings
+
+log = logging.getLogger(__name__)
 
 class SpeechExtractor(AudioProcessor):
   def __init__(
@@ -72,7 +74,7 @@ class SpeechExtractor(AudioProcessor):
       top_prob = float(avg_probs[top_idx])
 
       end_of_kept_seg = 0
-      print(f"{seg['start']/16000:8.2f}s-{seg['end']/16000:8.2f}s  →  {top_label:<20} {top_prob:.3f}")
+      log.debug(f"{seg['start']/16000:8.2f}s-{seg['end']/16000:8.2f}s  →  {top_label:<20} {top_prob:.3f}")
       if speech_seg:
         end_of_kept_seg = speech_seg[-1]['end']
 
@@ -83,7 +85,7 @@ class SpeechExtractor(AudioProcessor):
         speech_seg.append(seg)
 
     if not speech_seg:
-      print('no speech. adjust speech_threshold.')
+      log.warning('no speech. adjust speech_threshold.')
 
     return speech_seg
 
@@ -95,15 +97,15 @@ class SpeechExtractor(AudioProcessor):
         cur_end = max(cur_end, seg['end'])
       else:
         merged.append({'start': cur_start, 'end': cur_end})
-        print(f'start: {cur_start/self.processing_sr}, end: {cur_end/self.processing_sr}')
+        log.debug(f'start: {cur_start/self.processing_sr}, end: {cur_end/self.processing_sr}')
         cur_start, cur_end = seg['start'], seg['end']
     merged.append({'start': cur_start, 'end': cur_end})
-    print(f'start: {cur_start/self.processing_sr}, end: {cur_end/self.processing_sr}')
-    print(f'merged: {len(merged)}')
+    log.debug(f'start: {cur_start/self.processing_sr}, end: {cur_end/self.processing_sr}')
+    log.info(f'merged: {len(merged)}')
     return merged
 
   def add_margins(self, speech_seg, wav):
-    print('add margins')
+    log.info('add margins')
     final_seg = speech_seg.copy()
     margin = self.processing_sr * self.margin_s
     min_margin = self.processing_sr * self.fade_len_s
@@ -116,22 +118,19 @@ class SpeechExtractor(AudioProcessor):
       final_seg[-1]['end'] = min(final_seg[-1]['end'] + margin, len(wav))
 
     for i in range(len(speech_seg) - 1):
-      print(f'processing: gap #{i}')
+      log.debug(f'processing: gap #{i}')
       gap_start = final_seg[i]['end']
       gap_end = final_seg[i+1]['start']
       gap = gap_end - gap_start
       if gap >= self.processing_sr * self.merge_gap_s:
-        print(f'gap #{i} extend...')
+        log.debug(f'gap #{i} extend...')
         extended_gap_start = self.find_extended_silence_boundary(gap_start, direction='backward', min_silence_sec=self.margin_s)
         extended_gap_end = self.find_extended_silence_boundary(gap_end, direction='forward', min_silence_sec=self.margin_s)
-
         if extended_gap_start:
-          print('gapstart extended')
           final_seg[i]['end'] = min(gap_start + min_margin, gap_end)
         else:
           final_seg[i]['end'] = min(gap_start + margin, gap_end)
         if extended_gap_end:
-          print('gapend extended')
           final_seg[i+1]['start'] = max(gap_end - min_margin, gap_start)
         else:
           final_seg[i+1]['start'] = max(gap_end - margin, gap_start)
@@ -153,7 +152,7 @@ class SpeechExtractor(AudioProcessor):
 
     if out_path is None:
       out_path = audio_path.with_name(f'{audio_path.stem}_speech_only{ext}')
-    print(f'out_path: {out_path}')
+    log.info(f'out_path: {out_path}')
     
     filter_parts = []
     concat_inputs = []
@@ -193,4 +192,4 @@ class SpeechExtractor(AudioProcessor):
 
     cmd.append(out_path)
     subprocess.run(cmd, check=True)
-    print(f'{out_path} created')
+    log.info(f'{out_path} created')

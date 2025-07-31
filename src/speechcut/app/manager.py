@@ -1,6 +1,10 @@
+import logging
 import queue
 import multiprocessing as mp
 from speechcut.app.worker import WorkerProcess
+
+log = logging.getLogger('speechcut.manager')
+AUDIO_EXTS = {'.wav', '.mp3', '.flac'}
 
 class Supervisor:
   '''
@@ -10,9 +14,10 @@ class Supervisor:
     * If a timeout occurs, forcibly terminate the worker and recreate the queues/worker (a fresh worker will start on the next call).
     * If processing completes successfully, keep the worker alive for reuse.
   '''
-  def __init__(self, default_timeout: int = 600):
+  def __init__(self, default_timeout: int = 600, log_queue=None):
     self.ctx = mp.get_context('spawn')
     self.default_timeout = default_timeout
+    self.log_queue = log_queue
     self._make_queues()
     self.worker = None
     self._task_seq = 0
@@ -23,18 +28,18 @@ class Supervisor:
 
   def _start_worker_if_needed(self):
     if self.worker is None or not self.worker.is_alive():
-      print('[manager] starting worker...')
-      self.worker = WorkerProcess(self.task_queue, self.result_queue)
+      log.info('[manager] starting worker...')
+      self.worker = WorkerProcess(self.task_queue, self.result_queue, log_queue=self.log_queue)
       self.worker.daemon = False  # On Windows, it’s recommended to explicitly set `daemon=False`.
       self.worker.start()
-      print(f'[manager] worker started pid={self.worker.pid}')
+      log.info(f'[manager] worker started pid={self.worker.pid}')
 
   def _kill_worker(self):
     if self.worker and self.worker.is_alive():
-      print(f'[manager] terminating worker pid={self.worker.pid}')
+      log.warning(f'[manager] terminating worker pid={self.worker.pid}')
       self.worker.terminate()
       self.worker.join(5)
-      print('[manager] worker terminated')
+      log.info('[manager] worker terminated')
     self.worker = None
     # Also recreate the queues cleanly (to prevent zombie/stale messages).
     try:
@@ -60,6 +65,8 @@ class Supervisor:
         msg = self.result_queue.get(timeout=to)
         mtype = msg.get('type')
         if mtype == 'fatal':
+          log.error('fatal error ocurred')
+          log.error(msg)
           self._kill_worker()
           return 'error'
 
@@ -69,6 +76,7 @@ class Supervisor:
           if mtype == 'done':
             return 'ok'
           else:
+            log.error(msg)
             self._kill_worker()
             return 'error'
     except queue.Empty:

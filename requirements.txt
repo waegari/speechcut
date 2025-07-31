@@ -1,10 +1,16 @@
+# to install libraries, run:
+# python -m pip download -r requirements.txt -d vendor\wheelhouse
+
 # audio processing
 ffmpeg-python
+soundfile
 
 # speech detection
-pysilero-vad
-tensorflow
+silero_vad
+tensorflow-cpu
+tensorflow_hub
 numpy
+onnxruntime
 
 # env
 python-dotenv
