@@ -60,18 +60,6 @@ To avoid copyright issues, this tool removes **all music segments**, even if the
 pip install -r requirements.txt
 ```
 
-### Run FastAPI server (dev)
-
-```bash
-uvicorn app.main:app --reload
-```
-
-### API Endpoints (example)
-
-* `POST /separate` — Upload audio and get speech-only version
-
-*Additional documentation coming soon.*
-
 ---
 
 ## 📜 License
@@ -85,4 +73,4 @@ Licensed under the **Apache License 2.0**. See [`LICENSE`](./LICENSE) for detail
 * Music detection is handled by [YAMNet](https://github.com/tensorflow/models/tree/master/research/audioset/yamnet) audio classifier.
 * Voice regions are segmented using [Silero-VAD](https://github.com/snakers4/silero-vad?tab=readme-ov-file).
 * Speech with background music is preserved intentionally.
-* Currently designed for local or internal use on Windows (FastAPI works fine).
+* Currently designed for local or internal use on Windows.
