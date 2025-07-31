@@ -52,14 +52,25 @@ To avoid copyright issues, this tool removes **all music segments**, even if the
 ### Prerequisites
 
 * Python 3.10+
-* FFmpeg installed and available in PATH
+* FFmpeg installed and available in PATH, OR:
+  * project-root\bin\ffmpeg.exe, ffprobe.exe MUST be ADDED
 
 ### Installation
 
-```bash
-pip install -r requirements.txt
+* download libraries
+```powershell
+python -m pip download -r requirements.txt -d vendor\wheelhouse
+```
+* install on .venv
+```powershell
+Remove-Item .venv -Recurse -Force -ErrorAction SilentlyContinue
+powershell -ExecutionPolicy Bypass -File .\scripts\install.ps1
 ```
 
+### Run (at .venv)
+```powershell
+.\.venv\Scripts\python.exe -m speechcut --poll 60 --timeout 600
+```
 ---
 
 ## 📜 License
