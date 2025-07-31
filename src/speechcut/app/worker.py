@@ -2,9 +2,9 @@ import os
 import re
 import time
 from multiprocessing import Process
-from src.modules.models.silero_vad.wrapper import SileroVADWrapper
-from src.modules.models.yamnet.wrapper import YamnetWrapper
-from src.modules.sound_separation.sound_separator import SoundSeparator
+from speechcut.ml.vad.silero import SileroVADWrapper
+from speechcut.ml.classifier.yamnet import YamnetWrapper
+from speechcut.pipelines.speech_extractor import SpeechExtractor
 
 DELAY_PATTERN = re.compile(r'__delay(\d+)', re.IGNORECASE)
 
@@ -17,7 +17,7 @@ def _maybe_delay(audio_path: str):
     print(f'[worker] simulate delay: {sec}s for {basename}')
     time.sleep(sec)
 
-class WorkerServer(Process):
+class WorkerProcess(Process):
   def __init__(self, task_queue, result_queue):
     super().__init__()
     self.task_queue = task_queue
@@ -49,12 +49,12 @@ class WorkerServer(Process):
 
         try:
           _maybe_delay(audio_path)  # ← Test delay hook
-          ss = SoundSeparator(
+          speechExtractor = SpeechExtractor(
             audio_path,
             vad_model=vad_model,
             classification_model=cls_model
           )
-          ss.speech_music_separate()
+          speechExtractor.speech_music_separate()
           self.result_queue.put({'type': 'done', 'id': task_id})
         except Exception as e:
           self.result_queue.put({'type': 'error', 'id': task_id, 'error': str(e)})

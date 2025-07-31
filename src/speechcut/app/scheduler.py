@@ -2,9 +2,9 @@ from __future__ import annotations
 import time
 from pathlib import Path
 from datetime import datetime, timedelta
-from src.settings.settings import settings
-from src.manager.worker_manager import WorkerManager
-from src.manager.process_tracker import ProcessTracker
+from speechcut.config.settings import settings
+from speechcut.app.manager import Supervisor
+from speechcut.app.locking import ProcessingLock
 
 AUDIO_EXTS = {'.wav', '.mp3', '.flac'}
 
@@ -48,13 +48,13 @@ def get_unprocessed_audio_files() -> list[Path]:
 
     return sorted(targets, key=lambda p: p.stat().st_mtime)
 
-def process_file(audio_path: Path, tracker: ProcessTracker, manager: WorkerManager, timeout_sec: int = 600):
-    if tracker.is_locked(audio_path):
+def process_file(audio_path: Path, locker: ProcessingLock, manager: Supervisor, timeout_sec: int = 600):
+    if locker.is_locked(audio_path):
         print(f'[skip] Already processing: {audio_path.name}')
         return
 
     print(f'[process] {audio_path.name}')
-    tracker.lock(audio_path)
+    locker.lock(audio_path)
     try:
         status = manager.process(str(audio_path), timeout=timeout_sec)
         if status == 'ok':
@@ -66,11 +66,11 @@ def process_file(audio_path: Path, tracker: ProcessTracker, manager: WorkerManag
             print(f'[error] {audio_path.name}')
             _mark(audio_path, 'failed')
     finally:
-        tracker.unlock(audio_path)
+        locker.unlock(audio_path)
 
 def run_scheduler(polling_seconds: int = 60, timeout_sec: int = 600):
-    tracker = ProcessTracker()
-    manager = WorkerManager(default_timeout=timeout_sec)
+    locker = ProcessingLock()
+    manager = Supervisor(default_timeout=timeout_sec)
 
     print(f'Scheduler started. Polling every {polling_seconds} sec.')
     try:
@@ -82,7 +82,7 @@ def run_scheduler(polling_seconds: int = 60, timeout_sec: int = 600):
 
             # only ONE file get processed
             if files:
-                process_file(files[0], tracker, manager, timeout_sec=timeout_sec)
+                process_file(files[0], locker, manager, timeout_sec=timeout_sec)
             else:
                 print('[idle] no new files')
 

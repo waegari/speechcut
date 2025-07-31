@@ -5,7 +5,7 @@ from pathlib import Path
 from typing import Union
 import ffmpeg
 
-from src.settings.settings import settings
+from speechcut.config.settings import settings
 
 class AudioProcessor:
   '''
