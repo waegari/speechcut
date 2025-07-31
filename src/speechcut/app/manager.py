@@ -65,6 +65,8 @@ class Supervisor:
         msg = self.result_queue.get(timeout=to)
         mtype = msg.get('type')
         if mtype == 'fatal':
+          log.error('fatal error ocurred')
+          log.error(msg)
           self._kill_worker()
           return 'error'
 
@@ -74,6 +76,7 @@ class Supervisor:
           if mtype == 'done':
             return 'ok'
           else:
+            log.error(msg)
             self._kill_worker()
             return 'error'
     except queue.Empty:
