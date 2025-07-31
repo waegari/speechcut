@@ -1,4 +1,5 @@
 import json
+import logging
 import re
 import subprocess
 from pathlib import Path
@@ -6,6 +7,9 @@ from typing import Union
 import ffmpeg
 
 from speechcut.config.settings import settings
+
+log = logging.getLogger('speechcut.scheduler')
+AUDIO_EXTS = {'.wav', '.mp3', '.flac'}
 
 class AudioProcessor:
   '''

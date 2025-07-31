@@ -1,11 +1,11 @@
-import os
-import re
-import time
+import os, re, time, logging
 from multiprocessing import Process
+from speechcut.utils.logging_setup import install_log_queue_handler
 from speechcut.ml.vad.silero import SileroVADWrapper
 from speechcut.ml.classifier.yamnet import YamnetWrapper
 from speechcut.pipelines.speech_extractor import SpeechExtractor
 
+AUDIO_EXTS = {'.wav', '.mp3', '.flac'}
 DELAY_PATTERN = re.compile(r'__delay(\d+)', re.IGNORECASE)
 
 def _maybe_delay(audio_path: str):
@@ -14,22 +14,27 @@ def _maybe_delay(audio_path: str):
   m = DELAY_PATTERN.search(basename)
   if m:
     sec = int(m.group(1))
-    print(f'[worker] simulate delay: {sec}s for {basename}')
+    logging.getLogger('speechcut.worker').debug(f'[worker] simulate delay: {sec}s for {basename}')
     time.sleep(sec)
 
 class WorkerProcess(Process):
-  def __init__(self, task_queue, result_queue):
+  def __init__(self, task_queue, result_queue, log_queue=None):
     super().__init__()
     self.task_queue = task_queue
     self.result_queue = result_queue
+    self.log_queue = log_queue
 
   def run(self):
+    if self.log_queue is not None:
+      install_log_queue_handler(self.log_queue)
+    log = logging.getLogger('speechcut.worker')
     try:
-      print(f'[worker] starting, pid={os.getpid()}')
+      log.info(f'[worker] starting, pid={os.getpid()}')
       vad_model = SileroVADWrapper()
       cls_model = YamnetWrapper()
-      print(f'[worker] models loaded, pid={os.getpid()}')
+      log.info(f'[worker] models loaded, pid={os.getpid()}')
     except Exception as e:
+      log.exception("model_load_failed")
       self.result_queue.put({'type': 'fatal', 'error': f'model_load_failed: {e}'})
       return
 
@@ -40,7 +45,7 @@ class WorkerProcess(Process):
 
       mtype = msg.get('type')
       if mtype == 'shutdown':
-        print(f'[worker] shutdown, pid={os.getpid()}')
+        log.info(f'[worker] shutdown, pid={os.getpid()}')
         return
 
       if mtype == 'process':
