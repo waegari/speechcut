@@ -5,10 +5,10 @@ from pathlib import Path
 from typing import Union
 import ffmpeg
 
-from settings.settings import settings
+from src.settings.settings import settings
 
 class AudioProcessor:
-  """
+  '''
   A class that provides audio conversion and silence detection using FFmpeg.
 
   Attributes:
@@ -19,7 +19,7 @@ class AudioProcessor:
     max_bytes (int): Maximum buffer size allowed (in bytes)
     silence_boundaries (list): Detected silence intervals (start, end)
     audio_info (dict): Cached audio metadata
-  """
+  '''
 
   def __init__(
     self,
@@ -33,7 +33,6 @@ class AudioProcessor:
     max_bytes: int = settings.MAX_AUDIO_BYTES,
   ):
     self.source_audio_path = Path(path) if isinstance(path, str) else path
-    print(f'audio path does{" not" if not self.source_audio_path.exists() else ""} exist')
 
     self.processing_sr = sr
     self.processing_ch = channels
@@ -75,7 +74,7 @@ class AudioProcessor:
     pad: float = settings.SILENCE_PADDING or 0.3,
     get_new_boundaries: bool = False,
   ) -> list[tuple[float, float]]:
-    """
+    '''
     Detect silence intervals using FFmpeg 'silencedetect' filter.
 
     Parameters:
@@ -86,7 +85,7 @@ class AudioProcessor:
 
     Returns:
       List of (start_time, end_time) tuples representing silence intervals
-    """
+    '''
     if self.silence_boundaries and not get_new_boundaries:
       return self.silence_boundaries
 
@@ -129,7 +128,7 @@ class AudioProcessor:
     min_silence_sec: float = 3.0,
     noise: str = '-30dB',
   ) -> float:
-    """
+    '''
     Search for a long silence near timestamp `ts`.
 
     Parameters:
@@ -140,7 +139,7 @@ class AudioProcessor:
 
     Returns:
       float: Found silence boundary timestamp (start or end) or 0.0 if not found
-    """
+    '''
     if direction not in ('forward', 'backward'):
       raise ValueError("direction must be 'forward' or 'backward'")
 

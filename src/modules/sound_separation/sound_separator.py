@@ -1,19 +1,16 @@
-import csv
 import subprocess
-import numpy as np
-from silero_vad import load_silero_vad, read_audio, get_speech_timestamps
-import tensorflow_hub as tfhub
-import tensorflow as tf
 from pathlib import Path
 from typing import Union
 
-from core.audio_processor import AudioProcessor
-from settings.settings import settings
+from src.modules.audio_processing.audio_processor import AudioProcessor
+from src.settings.settings import settings
 
 class SoundSeparator(AudioProcessor):
   def __init__(
     self,
     path: Union[str, Path],
+    vad_model,
+    classification_model,
     sr: int = settings.PROCESSING_SR,
     channels: int = settings.PROCESSING_CH,
     
@@ -36,8 +33,8 @@ class SoundSeparator(AudioProcessor):
     self.min_speech_ms = min_speech_ms
     self.speech_threshold = speech_threshold
 
-    self.silero_vad = load_silero_vad()
-    self.yamnet = tfhub.load('https://tfhub.dev/google/yamnet/1')
+    self.vad_model = vad_model
+    self.classification_model = classification_model
 
   def speech_music_separate(self):
     timestamps, wav = self.get_vad_timestamps()
@@ -47,36 +44,29 @@ class SoundSeparator(AudioProcessor):
     self.ffmpeg_concat_fade(merged)
 
   def get_vad_timestamps(self):
-    """
+    '''
     Use VAD (Voice Activity Detection) model to detect speech segments in the audio
     Returns segments and the full waveform
-    """
+    '''
     audio_path = str(self.source_audio_path)
-    model = self.silero_vad
-    wav = read_audio(audio_path, sampling_rate=self.processing_sr)
-    speech_timestamps = get_speech_timestamps(
+    v_model = self.vad_model
+    wav = v_model.read_audio(audio_path, sampling_rate=self.processing_sr)
+    speech_timestamps = v_model.get_speech_timestamps(
       wav,
-      model,
       sampling_rate=self.processing_sr,
     )
     return speech_timestamps, wav
 
   def sound_classification(self, timestamps, wav):
-    yamnet = self.yamnet
-    csv_path = yamnet.class_map_path().numpy().decode()
-
-    with tf.io.gfile.GFile(csv_path, 'r') as f:
-      reader = csv.reader(f)
-      next(reader)
-      class_names = [row[2] for row in reader]
+    c_model = self.classification_model
+    class_names = c_model.class_names
 
     speech_seg = []
 
     for seg in timestamps:
       audio_seg = wav[seg['start']:seg['end']].squeeze().numpy()
-      scores, _, _ = yamnet(audio_seg)
-      scores_np = scores.numpy()
-      avg_probs = scores_np.mean(axis=0)
+      scores = c_model.predict(audio_seg)
+      avg_probs = scores.mean(axis=0)
       top_idx = int(avg_probs.argmax())
       top_label = class_names[top_idx]
       top_prob = float(avg_probs[top_idx])
@@ -162,8 +152,9 @@ class SoundSeparator(AudioProcessor):
       ext = audio_path.suffix.lower()
 
     if out_path is None:
-      out_path = f'{audio_path.stem}_speech_only{ext}'
-
+      out_path = audio_path.with_name(f'{audio_path.stem}_speech_only{ext}')
+    print(f'out_path: {out_path}')
+    
     filter_parts = []
     concat_inputs = []
 
