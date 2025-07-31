@@ -2,7 +2,7 @@ from pathlib import Path
 from threading import Lock
 from typing import Set
 
-class ProcessTracker:
+class ProcessingLock:
   '''
   Tracks files currently being processed to prevent duplicate handling.
   '''

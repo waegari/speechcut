@@ -2,10 +2,10 @@ import subprocess
 from pathlib import Path
 from typing import Union
 
-from src.modules.audio_processing.audio_processor import AudioProcessor
-from src.settings.settings import settings
+from speechcut.audio.processor import AudioProcessor
+from speechcut.config.settings import settings
 
-class SoundSeparator(AudioProcessor):
+class SpeechExtractor(AudioProcessor):
   def __init__(
     self,
     path: Union[str, Path],

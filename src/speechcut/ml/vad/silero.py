@@ -3,7 +3,7 @@ from pathlib import Path
 import numpy as np
 from silero_vad import load_silero_vad, get_speech_timestamps, read_audio
 
-from src.settings.settings import settings
+from speechcut.config.settings import settings
 
 class SileroVADWrapper:
   def __init__(self, sr=settings.PROCESSING_SR):

@@ -1,8 +1,8 @@
 import queue
 import multiprocessing as mp
-from src.workers.worker_server import WorkerServer
+from speechcut.app.worker import WorkerProcess
 
-class WorkerManager:
+class Supervisor:
   '''
   - Maintain a single worker process (models stay resident)
   - When `process(audio_path, timeout)` is called:
@@ -24,7 +24,7 @@ class WorkerManager:
   def _start_worker_if_needed(self):
     if self.worker is None or not self.worker.is_alive():
       print('[manager] starting worker...')
-      self.worker = WorkerServer(self.task_queue, self.result_queue)
+      self.worker = WorkerProcess(self.task_queue, self.result_queue)
       self.worker.daemon = False  # On Windows, it’s recommended to explicitly set `daemon=False`.
       self.worker.start()
       print(f'[manager] worker started pid={self.worker.pid}')
