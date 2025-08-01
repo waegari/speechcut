@@ -207,7 +207,9 @@ marimo/_lsp/
 __marimo__/
 
 # packging
+vendor/
 vendor/wheelhouse/
+vendor/etc/
 bin/ffmpeg.exe
 bin/ffprobe.exe
 
