@@ -49,11 +49,15 @@ To avoid copyright issues, this tool removes **all music segments**, even if the
 
 ## 🚀 Getting Started
 
-### Prerequisites
+### <span style="color:orange">**Prerequisites**</span>
 
-* Python 3.10+
+* Python 3.11+
 * FFmpeg installed and available in PATH, OR:
-  * project-root\bin\ffmpeg.exe, ffprobe.exe MUST be ADDED
+  * <span style="color:orange">**project-root\bin\ffmpeg.exe, ffprobe.exe MUST be ADDED**</span>
+* [VC++ runtime](https://learn.microsoft.com/en-us/cpp/windows/latest-supported-vc-redist?view=msvc-170) installed
+  * [download](https://aka.ms/vs/17/release/vc_redist.x64.exe) installer
+  * to <span style="color:orange">**project-root\vendor\etc**</span> and make sure the name of the installer is <span style="color:orange">**VC_redist.x64.exe**</span>.
+  * then \scripts\install.ps1 install it IF VC++ redist has NOT been installed
 
 ### Installation
 
