@@ -137,7 +137,7 @@ class SpeechExtractor(AudioProcessor):
 
     return final_seg
 
-  def ffmpeg_concat_fade(self, segments, out_path=None, save_as_mp3=True):
+  def ffmpeg_concat_fade(self, segments, out_path=None, save_as_mp3=False):
     if not segments:
       raise ValueError('segments are empty')
     audio_path = self.source_audio_path
