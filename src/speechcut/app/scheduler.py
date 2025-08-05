@@ -15,7 +15,7 @@ def _marker_paths(src: Path) -> dict[str, Path]:
   new_filename  = get_new_filename(src)
   
   return {
-    'success': src.with_name(f'{new_filename.stem}.wav'),
+    'success': src.with_stem(f'{new_filename.stem}'),
     'timeout': src.with_name(f'{new_filename.stem}.timeout'),
     'failed':  src.with_name(f'{new_filename.stem}.failed'),
   }
