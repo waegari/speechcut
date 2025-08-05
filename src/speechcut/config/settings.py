@@ -11,6 +11,9 @@ class Settings:
   INPUT_DIR = Path(os.getenv('INPUT_DIR', BASE_DIR / 'input'))
   OUTPUT_DIR = Path(os.getenv('OUTPUT_DIR', BASE_DIR / 'output'))
   XML_FILENAME = Path(os.getenv('XML_FILENAME', 'Auto_Metadata.xml'))
+  
+  # File retention period
+  FILE_RETENTION_DAYS = float(os.getenv('FILE_RETENTION_DAYS', 30.0))
 
   # Processing audio
   PROCESSING_SR = int(os.getenv('PROCESSING_SR', 16000))

@@ -62,7 +62,7 @@ def add_processed_program_to_xml(audio_path: str | Path) -> None:
     return
 
   for p in meta.findall('program'):
-    if p.findtext('programid') == new_pid and p.findtext('brdtime') == brd and p.findtext('speech_only_done') == '1':
+    if p.findtext('programid') == new_pid and p.findtext('brdtime') == brd and p.findtext('speech_only') == '1':
       log.warning('이미 처리된 파일입니다: %s', new_file)
       return
 
@@ -87,7 +87,7 @@ def add_processed_program_to_xml(audio_path: str | Path) -> None:
   prog.find('filename/filepath').text = new_file
 
   # 처리 완료 태그 추가
-  ET.SubElement(prog, 'speech_only_done').text = '1'
+  ET.SubElement(prog, 'speech_only').text = '1'
 
   # 저장
   ET.indent(tree, space='  ', level=0)   # 들여쓰기

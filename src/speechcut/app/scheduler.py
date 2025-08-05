@@ -30,15 +30,21 @@ def _mark(src: Path, kind: str, note: str = ''):
 
 def get_unprocessed_audio_files() -> list[Path]:
   input_dir = Path(settings.INPUT_DIR)
-  cutoff = datetime.now() - timedelta(days=1)
+  now = datetime.now()
+  cutoff = now - timedelta(days=1)
+  cutoff_month = now - timedelta(days=settings.FILE_RETENTION_DAYS)
   targets: list[Path] = []
 
   for file in input_dir.rglob('*.*'):
+    last_modified = datetime.fromtimestamp(file.stat().st_mtime)
     if file.suffix.lower() not in AUDIO_EXTS:
       continue
-    if '(다시듣기)' in file.stem:
+    if last_modified < cutoff:
+      if (last_modified < cutoff_month) and ('(다시듣기)' in file.stem):
+        log.info(f'REMOVE OLD file: {file.name}')
+        file.unlink()
       continue
-    if datetime.fromtimestamp(file.stat().st_mtime) < cutoff:
+    if '(다시듣기)' in file.stem:
       continue
 
     marks = _marker_paths(file)
