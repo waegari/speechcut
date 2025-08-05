@@ -12,7 +12,7 @@ AUDIO_EXTS = {'.wav', '.mp3', '.flac'}
 
 def _marker_paths(src: Path) -> dict[str, Path]:
   return {
-    'success': src.with_name(f'{src.stem}_speech_only.mp3'),
+    'success': src.with_stem(f'{src.stem}_speech_only'),
     'timeout': src.with_name(f'{src.stem}_speech_only.timeout'),
     'failed':  src.with_name(f'{src.stem}_speech_only.failed'),
   }
