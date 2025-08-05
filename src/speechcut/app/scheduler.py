@@ -5,16 +5,19 @@ from pathlib import Path
 from datetime import datetime, timedelta
 from speechcut.config.settings import settings
 from speechcut.app.manager import Supervisor
+from speechcut.utils.editing_metadata import get_new_filename
 from speechcut.utils.locking import ProcessingLock
 
 log = logging.getLogger('speechcut.scheduler')
 AUDIO_EXTS = {'.wav', '.mp3', '.flac'}
 
 def _marker_paths(src: Path) -> dict[str, Path]:
+  new_filename  = get_new_filename(src)
+  
   return {
-    'success': src.with_name(f'{src.stem}_speech_only.mp3'),
-    'timeout': src.with_name(f'{src.stem}_speech_only.timeout'),
-    'failed':  src.with_name(f'{src.stem}_speech_only.failed'),
+    'success': src.with_name(f'{new_filename.stem}.wav'),
+    'timeout': src.with_name(f'{new_filename.stem}.timeout'),
+    'failed':  src.with_name(f'{new_filename.stem}.failed'),
   }
 
 def _mark(src: Path, kind: str, note: str = ''):
@@ -33,7 +36,7 @@ def get_unprocessed_audio_files() -> list[Path]:
   for file in input_dir.rglob('*.*'):
     if file.suffix.lower() not in AUDIO_EXTS:
       continue
-    if '_speech_only' in file.stem:
+    if '(다시듣기)' in file.stem:
       continue
     if datetime.fromtimestamp(file.stat().st_mtime) < cutoff:
       continue

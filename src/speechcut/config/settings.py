@@ -10,6 +10,7 @@ class Settings:
   # Directories
   INPUT_DIR = Path(os.getenv('INPUT_DIR', BASE_DIR / 'input'))
   OUTPUT_DIR = Path(os.getenv('OUTPUT_DIR', BASE_DIR / 'output'))
+  XML_FILENAME = Path(os.getenv('XML_FILENAME', 'Auto_Metadata.xml'))
 
   # Processing audio
   PROCESSING_SR = int(os.getenv('PROCESSING_SR', 16000))

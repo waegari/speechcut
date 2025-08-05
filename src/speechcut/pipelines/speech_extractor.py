@@ -4,6 +4,7 @@ from typing import Union
 
 from speechcut.audio.processor import AudioProcessor
 from speechcut.config.settings import settings
+from speechcut.utils.editing_metadata import get_new_filename
 
 log = logging.getLogger(__name__)
 
@@ -151,7 +152,7 @@ class SpeechExtractor(AudioProcessor):
       ext = audio_path.suffix.lower()
 
     if out_path is None:
-      out_path = audio_path.with_name(f'{audio_path.stem}_speech_only{ext}')
+      out_path = get_new_filename(audio_path)
     log.info(f'out_path: {out_path}')
     
     filter_parts = []
