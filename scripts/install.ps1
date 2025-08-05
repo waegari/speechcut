@@ -7,7 +7,7 @@
 param(
   [string]$Root = "$PSScriptRoot\..",
   [string]$Venv = "$Root\.venv",
-  [string]$Wheelhouse = "$Root\vendor\wheelhouse"
+  [string]$Wheelhouse = "$Root\vendor\wheelhouse",
   [string]$VcRedist = "$Root\vendor\etc\VC_redist.x64.exe"
 )
 
