@@ -1,11 +1,12 @@
 import csv
+from pathlib import Path
 import numpy as np
 import tensorflow as tf
-import tensorflow_hub as tfhub
 
+MODEL_DIR = Path(__file__).parent / 'models' / 'yamnet_saved'
 class YamnetWrapper:
-  def __init__(self, model_path="https://tfhub.dev/google/yamnet/1"):
-    self.model = tfhub.load(model_path)
+  def __init__(self):
+    self.model = tf.saved_model.load(str(MODEL_DIR))
     self.class_names = self.get_class_names()
 
   def predict(self, waveform) -> np.ndarray:
