@@ -25,9 +25,10 @@ def _mark(src: Path, kind: str, note: str = ''):
     content += f'\n{note}'
   mp.write_text(content, encoding='utf-8')
 
-def get_unprocessed_audio_files() -> list[Path]:
+def get_unprocessed_audio_files(beginning: datetime) -> list[Path]:
   input_dir = Path(settings.INPUT_DIR)
-  cutoff = datetime.now() - timedelta(days=1)
+  now = datetime.now()
+  cutoff = max(beginning, now - timedelta(days=1))
   targets: list[Path] = []
 
   for file in input_dir.rglob('*.*'):
@@ -71,15 +72,17 @@ def process_file(audio_path: Path, locker: ProcessingLock, manager: Supervisor, 
     locker.unlock(audio_path)
 
 def run_scheduler(polling_seconds: int = 60, timeout_sec: int = 600, log_queue=None):
+  started_at = datetime.now()
+  
   locker = ProcessingLock()
   manager = Supervisor(default_timeout=timeout_sec, log_queue=log_queue)
 
-  log.info(f'Scheduler started. Polling every {polling_seconds} sec.')
+  log.info(f'Scheduler started at {started_at}. Polling every {polling_seconds} sec.')
   try:
     while True:
       cycle_start = time.time()
 
-      files = get_unprocessed_audio_files()
+      files = get_unprocessed_audio_files(started_at)
       log.info(f'[{datetime.now().isoformat()}] {len(files)} target(s).')
 
       # only ONE file get processed
