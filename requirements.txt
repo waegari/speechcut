@@ -8,7 +8,6 @@ soundfile
 # speech detection
 silero_vad
 tensorflow-cpu
-tensorflow_hub
 numpy
 onnxruntime
 
