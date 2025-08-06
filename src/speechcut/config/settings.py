@@ -70,9 +70,11 @@ class Settings:
   # Directories
   INPUT_DIR: list[Path] = _read_input_dirs_from_env('INPUT_DIR')
   OUTPUT_DIR: Path = _norm_env_path('OUTPUT_DIR', 'output', ROOT_DIR)
+  
+  LOG_DIR: Path = _norm_env_path('LOG_DIR', 'logs', ROOT_DIR)
 
   FFMPEG_BIN: Path = _norm_env_path('FFMPEG_EXE', _bin_default('ffmpeg'), ROOT_DIR)
-  FFPROBE_BIN: Path = _norm_env_path('FFPROBE_EXE',_bin_default('ffprobe'), ROOT_DIR)
+  FFPROBE_BIN: Path = _norm_env_path('FFPROBE_EXE', _bin_default('ffprobe'), ROOT_DIR)
 
   # Processing audio
   PROCESSING_SR = int(os.getenv('PROCESSING_SR', 16000))
@@ -95,6 +97,8 @@ class Settings:
   MERGE_GAP_SECONDS = int(os.getenv('MERGE_GAP_SECONDS', 10))
   MARGIN_SECONDS = int(os.getenv('MARGIN_SECONDS', 4))
   FADE_SECONDS = float(os.getenv('FADE_SECONDS', 0.5))
+  
+  LOG_LEVEL = os.getenv('LOG_LEVEL', 'INFO')
 
   # File size limit
   MAX_AUDIO_BYTES = int(os.getenv('MAX_AUDIO_BYTES', 100 * 1024 * 1024))  # 100MB
