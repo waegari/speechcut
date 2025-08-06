@@ -5,20 +5,22 @@ from multiprocessing import Queue
 from pathlib import Path
 import os
 
+from speechcut.config.settings import settings
+
 FMT = '%(asctime)s %(levelname)s [pid=%(process)d] [%(name)s] %(message)s'
 DATEFMT = '%Y-%m-%d %H:%M:%S'
 
-def setup_log_listener(log_queue: Queue, *, log_dir: str | Path = 'logs',
+def setup_log_listener(log_queue: Queue, *, log_dir: str | Path,
            level: str | None = None, filename: str = 'speechcut.log',
            when: str = 'midnight', backup_count: int = 14):
   '''
   Called in the main process: start a QueueListener and attach handlers (file rotation + console).
   Return value: the listener (you must call `.stop()` on shutdown).
   '''
-  log_dir = Path(os.getenv('LOG_DIR', log_dir))
+  log_dir = log_dir or settings.LOG_DIR
   log_dir.mkdir(parents=True, exist_ok=True)
 
-  level = (os.getenv('LOG_LEVEL') or level or 'INFO').upper()
+  level = (level or settings.LOG_LEVEL or 'INFO').upper()
   file_handler = logging.handlers.TimedRotatingFileHandler(
     log_dir / filename, when=when, backupCount=backup_count, encoding='utf-8'
   )
