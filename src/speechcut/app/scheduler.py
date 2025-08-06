@@ -39,6 +39,8 @@ def get_unprocessed_audio_files(beginning: datetime) -> list[Path]:
     log.info(f'scan dir({i+1}/{len(input_dirs)}): {str(input_dir)}')
     for file in input_dir.rglob('*.*'):
       last_modified = datetime.fromtimestamp(file.stat().st_mtime)
+      if file.suffix.lower() not in AUDIO_EXTS:
+        continue
       if last_modified < cutoff:
         if (last_modified < cutoff_month) and ('(다시듣기)' in file.stem):
           log.info(f'REMOVE OLD file: {file.name}')

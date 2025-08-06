@@ -8,13 +8,16 @@ from speechcut.config.settings import settings
 log = logging.getLogger(__name__)
 
 def get_new_filename(old: Path) -> Path:
-  parts  = old.stem.split('_')
-  end_ts, pname, brd, pid = parts[:4]    # ['20250728…', '김현정의뉴스쇼(1)', '071002', '12345']
-  pid = int(pid) % 10_000_000 # mod
-  new_pid  = str(pid + 10_000_000)
-  new_pname = f'{pname}(다시듣기)'
-  new_stem = '_'.join([end_ts, new_pname, brd, new_pid])
-  return old.with_stem(new_stem)
+  try:
+    parts  = old.stem.split('_')
+    end_ts, pname, brd, pid = parts[:4]    # ['20250728…', '김현정의뉴스쇼(1)', '071002', '12345']
+    pid = int(pid) % 10_000_000 # mod
+    new_pid  = str(pid + 10_000_000)
+    new_pname = f'{pname}(다시듣기)'
+    new_stem = '_'.join([end_ts, new_pname, brd, new_pid])
+    return old.with_stem(new_stem)
+  except:
+    return old
 
 def add_processed_program_to_xml(audio_path: str | Path) -> None:
   '''
