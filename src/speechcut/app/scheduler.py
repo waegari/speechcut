@@ -26,28 +26,30 @@ def _mark(src: Path, kind: str, note: str = ''):
   mp.write_text(content, encoding='utf-8')
 
 def get_unprocessed_audio_files(beginning: datetime) -> list[Path]:
-  input_dir = Path(settings.INPUT_DIR)
+  input_dirs = settings.INPUT_DIR
   now = datetime.now()
   cutoff = max(beginning, now - timedelta(days=1))
   targets: list[Path] = []
+  
+  for i, input_dir in enumerate(input_dirs):
+    log.info(f'scan dir({i+1}/{len(input_dirs)}): {str(input_dir)}')
+    for file in input_dir.rglob('*.*'):
+      if file.suffix.lower() not in AUDIO_EXTS:
+        continue
+      if '_speech_only' in file.stem:
+        continue
+      if datetime.fromtimestamp(file.stat().st_mtime) < cutoff:
+        continue
 
-  for file in input_dir.rglob('*.*'):
-    if file.suffix.lower() not in AUDIO_EXTS:
-      continue
-    if '_speech_only' in file.stem:
-      continue
-    if datetime.fromtimestamp(file.stat().st_mtime) < cutoff:
-      continue
+      marks = _marker_paths(file)
 
-    marks = _marker_paths(file)
-
-    if marks['success'].exists():
-      continue
-    # no retry on failure
-    if marks['timeout'].exists() or marks['failed'].exists():
-      continue
-    
-    targets.append(file)
+      if marks['success'].exists():
+        continue
+      # no retry on failure
+      if marks['timeout'].exists() or marks['failed'].exists():
+        continue
+      
+      targets.append(file)
 
   return sorted(targets, key=lambda p: p.stat().st_mtime)
 

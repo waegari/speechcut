@@ -1,7 +1,12 @@
 from __future__ import annotations
+
+import json
+import re
+import os
+from typing import Iterable
+
 from pathlib import Path
 from dotenv import load_dotenv
-import os
 
 # <root>/src/speechcut/config/settings.py
 _THIS = Path(__file__).resolve()
@@ -11,10 +16,10 @@ _ROOT_DIR = _SRC_DIR.parent
 load_dotenv(_ROOT_DIR / '.env', override=True)
 
 def _norm_env_path(name: str, default_rel: str | Path, base: Path = _ROOT_DIR) -> Path:
-
-#    .env에 들어있는 상대경로를 'base'(프로젝트 루트) 기준 절대경로로 정규화
-#    값이 비어있으면 default_rel을 base 기준으로 사용
-
+  '''
+    Normalize the relative paths in the .env into absolute paths based on “base” (the project root).
+    If the value is empty, use default_rel relative to base.
+  '''
   val = os.getenv(name)
   p = Path(val) if val else Path(default_rel)
   if not p.is_absolute():
@@ -26,6 +31,36 @@ def _norm_env_path(name: str, default_rel: str | Path, base: Path = _ROOT_DIR) -
 def _bin_default(exe: str) -> str:
   return f'bin/{exe}.exe' if os.name == 'nt' else f'bin/{exe}'
 
+def _read_input_dirs_from_env(
+    name: str = 'INPUT_DIR',
+    default_rel: str | Path = 'input',
+    base: Path = _ROOT_DIR
+) -> list[Path]:
+  '''
+    If INPUT_DIR in the .env is a JSON list, use that list; otherwise treat it as a single value.
+    For each item, if it is a relative path, convert it to an absolute path based on base.
+    If empty, use default_rel.
+  '''
+  raw = (os.getenv(name) or '').strip()
+  if raw.startswith('['):
+    try:
+      arr = json.loads(raw)
+    except Exception as e:
+      raise ValueError(f'{name} failed to parse JSON: {e}')
+    paths: list[Path] = []
+    for s in arr:
+      v = str(s).strip()
+      if not v:
+        continue
+      p = Path(v)
+      p = (base / p).resolve() if not p.is_absolute() else p.resolve()
+      paths.append(p)
+    if paths:
+      return paths
+
+  # If it is not JSON or is empty, handle it as a single value(in the list).
+  return [_norm_env_path(name, default_rel, base)]
+
 BASE_DIR = Path(__file__).resolve().parent.parent
 
 class Settings:
@@ -33,7 +68,7 @@ class Settings:
   SRC_DIR: Path = _SRC_DIR # <root>/src
 
   # Directories
-  INPUT_DIR: Path = _norm_env_path('INPUT_DIR', 'input', ROOT_DIR)
+  INPUT_DIR: list[Path] = _read_input_dirs_from_env('INPUT_DIR')
   OUTPUT_DIR: Path = _norm_env_path('OUTPUT_DIR', 'output', ROOT_DIR)
 
   FFMPEG_BIN: Path = _norm_env_path('FFMPEG_EXE', _bin_default('ffmpeg'), ROOT_DIR)
