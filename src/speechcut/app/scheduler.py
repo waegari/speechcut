@@ -56,7 +56,6 @@ def get_unprocessed_audio_files(beginning: datetime) -> list[Path]:
         continue
       
       targets.append(file)
->>>>>>> b338c0116bda71cc7958b1f11e8e8345977b9eb0
 
   return sorted(targets, key=lambda p: p.stat().st_mtime)
 
