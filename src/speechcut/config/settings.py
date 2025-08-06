@@ -78,6 +78,8 @@ class Settings:
 
   XML_FILENAME = Path(os.getenv('XML_FILENAME', 'Auto_Metadata.xml'))
 
+  FILE_RETENTION_DAYS = int(os.getenv('FILE_RETENTION_DAYS', 30))
+
   # Processing audio
   PROCESSING_SR = int(os.getenv('PROCESSING_SR', 16000))
   PROCESSING_CH = int(os.getenv('PROCESSING_CH', 1))
