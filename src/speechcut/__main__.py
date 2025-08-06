@@ -1,8 +1,13 @@
 from __future__ import annotations
-import argparse, multiprocessing as mp, logging
+import argparse
+import logging
+import os
+import multiprocessing as mp
+
 from multiprocessing import Queue
 from speechcut.utils.logging_setup import setup_log_listener, install_log_queue_handler
 from speechcut.app.scheduler import run_scheduler
+from speechcut.config.settings import settings
 
 def parse_args():
   p = argparse.ArgumentParser(prog='speechcut', description='Speech-only generator scheduler')
@@ -11,6 +16,8 @@ def parse_args():
   return p.parse_args()
 
 def main():
+  os.environ['PATH'] = str(settings.FFMPEG_BIN.parent) + os.pathsep + os.environ.get('PATH', '')
+
   args = parse_args()
 
   log_queue: Queue = mp.Queue()
