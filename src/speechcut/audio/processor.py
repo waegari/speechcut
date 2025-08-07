@@ -7,6 +7,7 @@ from typing import Union
 import ffmpeg
 
 from speechcut.config.settings import settings
+from speechcut.utils.subproc import no_window_kwargs
 
 log = logging.getLogger('speechcut.scheduler')
 AUDIO_EXTS = {'.wav', '.mp3', '.flac'}
@@ -61,7 +62,7 @@ class AudioProcessor:
       '-show_entries', 'format=duration',
       '-of', 'json', path,
     ]
-    info = subprocess.check_output(cmd, text=True)
+    info = subprocess.check_output(cmd, text=True, **no_window_kwargs())
     stream_info = json.loads(info)['streams'][0]
     format_info = json.loads(info)['format']
     format_dur = float(format_info.get('duration'))

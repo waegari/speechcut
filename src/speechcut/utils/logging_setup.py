@@ -27,11 +27,11 @@ def setup_log_listener(log_queue: Queue, *, log_dir: str | Path | None = None,
   file_handler.setFormatter(logging.Formatter(FMT, DATEFMT))
   file_handler.setLevel(getattr(logging, level, logging.INFO))
 
-  console = logging.StreamHandler()
-  console.setFormatter(logging.Formatter(FMT, DATEFMT))
-  console.setLevel(getattr(logging, level, logging.INFO))
+  # console = logging.StreamHandler()
+  # console.setFormatter(logging.Formatter(FMT, DATEFMT))
+  # console.setLevel(getattr(logging, level, logging.INFO))
 
-  listener = logging.handlers.QueueListener(log_queue, file_handler, console)
+  listener = logging.handlers.QueueListener(log_queue, file_handler, respect_handler_level=True)
   listener.start()
   return listener
 
