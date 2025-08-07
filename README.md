@@ -71,9 +71,14 @@ Remove-Item .venv -Recurse -Force -ErrorAction SilentlyContinue
 powershell -ExecutionPolicy Bypass -File .\scripts\install.ps1
 ```
 
-### Run (at .venv)
+### Run (at .venv, for debugging)
 ```powershell
 .\.venv\Scripts\python.exe -m speechcut --poll 60 --timeout 600
+```
+
+### Setup Service & Run (at .venv)
+```powershell
+powershell -ExecutionPolicy Bypass -File .\scripts\Setup-SpeechcutService.ps1
 ```
 ---
 
