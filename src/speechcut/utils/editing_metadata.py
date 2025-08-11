@@ -81,7 +81,6 @@ def add_processed_program_to_xml(audio_path: str | Path) -> None:
   if src_prog is not None:
     # 원본 태그 복제
     for child in src_prog:
-      print(str(child.text))
       prog.append(ET.fromstring(ET.tostring(child)))
 
   # 수정
