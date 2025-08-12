@@ -70,11 +70,15 @@ class Settings:
   # Directories
   INPUT_DIR: list[Path] = _read_input_dirs_from_env('INPUT_DIR')
   OUTPUT_DIR: Path = _norm_env_path('OUTPUT_DIR', 'output', ROOT_DIR)
-  
+    
   LOG_DIR: Path = _norm_env_path('LOG_DIR', 'logs', ROOT_DIR)
 
   FFMPEG_BIN: Path = _norm_env_path('FFMPEG_EXE', _bin_default('ffmpeg'), ROOT_DIR)
   FFPROBE_BIN: Path = _norm_env_path('FFPROBE_EXE', _bin_default('ffprobe'), ROOT_DIR)
+
+  XML_FILENAME = Path(os.getenv('XML_FILENAME', 'Auto_Metadata.xml'))
+
+  FILE_RETENTION_DAYS = int(os.getenv('FILE_RETENTION_DAYS', 30))
 
   # Processing audio
   PROCESSING_SR = int(os.getenv('PROCESSING_SR', 16000))

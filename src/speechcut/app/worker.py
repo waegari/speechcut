@@ -1,6 +1,7 @@
 import os, re, time, logging
 from multiprocessing import Process
 from speechcut.utils.logging_setup import install_log_queue_handler
+from speechcut.utils.editing_metadata import add_processed_program_to_xml
 from speechcut.ml.vad.silero import SileroVADWrapper
 from speechcut.ml.classifier.yamnet import YamnetWrapper
 from speechcut.pipelines.speech_extractor import SpeechExtractor
@@ -60,6 +61,7 @@ class WorkerProcess(Process):
             classification_model=cls_model
           )
           speechExtractor.speech_music_separate()
+          add_processed_program_to_xml(audio_path)
           self.result_queue.put({'type': 'done', 'id': task_id})
         except Exception as e:
           self.result_queue.put({'type': 'error', 'id': task_id, 'error': str(e)})

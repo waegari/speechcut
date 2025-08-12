@@ -4,6 +4,8 @@ from typing import Union
 
 from speechcut.audio.processor import AudioProcessor
 from speechcut.config.settings import settings
+from speechcut.utils.editing_metadata import get_new_filename
+from speechcut.utils.subproc import no_window_kwargs
 
 log = logging.getLogger(__name__)
 
@@ -151,7 +153,7 @@ class SpeechExtractor(AudioProcessor):
       ext = audio_path.suffix.lower()
 
     if out_path is None:
-      out_path = audio_path.with_name(f'{audio_path.stem}_speech_only{ext}')
+      out_path = get_new_filename(audio_path)
     log.info(f'out_path: {out_path}')
     
     filter_parts = []
@@ -191,5 +193,7 @@ class SpeechExtractor(AudioProcessor):
       cmd += ['-c:a', 'flac']
 
     cmd.append(out_path)
-    subprocess.run(cmd, check=True)
+    subprocess.run(cmd, check=True,
+                   stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+                   **no_window_kwargs())
     log.info(f'{out_path} created')
