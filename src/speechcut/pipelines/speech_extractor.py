@@ -1,6 +1,7 @@
 import subprocess, logging
 from pathlib import Path
 from typing import Union
+import numpy as np
 
 from speechcut.audio.processor import AudioProcessor
 from speechcut.config.settings import settings
@@ -29,6 +30,7 @@ class SpeechExtractor(AudioProcessor):
     fade_len_s: float = settings.FADE_SECONDS,
     min_speech_s: int = settings.MIN_SPEECH_S,
     speech_threshold: float = settings.SPEECH_THRESHOLD,
+    music_sensitivity: int = settings.MUSIC_SENSITIVITY,
   ):
     super().__init__(path, sr, channels, output_sr, output_br, output_ch, max_bytes)
 
@@ -38,6 +40,7 @@ class SpeechExtractor(AudioProcessor):
     self.fade_len_s = fade_len_s
     self.min_speech_s = min_speech_s
     self.speech_threshold = speech_threshold
+    self.music_sensitivity = music_sensitivity
 
     self.vad_model = vad_model
     self.classification_model = classification_model
@@ -71,13 +74,33 @@ class SpeechExtractor(AudioProcessor):
 
     for seg in timestamps:
       audio_seg = wav[seg['start']:seg['end']].squeeze().numpy()
-      scores = c_model.predict(audio_seg)
+      scores = c_model.predict(audio_seg)      
       avg_probs = scores.mean(axis=0)
-      top_idx = int(avg_probs.argmax())
-      top_label = class_names[top_idx]
-      top_prob = float(avg_probs[top_idx])
 
-      log.debug(f"{seg['start']/16000:8.2f}s-{seg['end']/16000:8.2f}s  →  {top_label:<20} {top_prob:.3f}")
+      # top4 indices
+      top5_idx = np.argsort(avg_probs)[-4:][::-1]  # 내림차순 상위 4개
+      top_labels = [class_names[i] for i in top5_idx]
+      top_probs = [float(avg_probs[i]) for i in top5_idx]
+      music_prob = float(avg_probs[class_names.index('Music')])
+
+      log.debug(
+        f'{seg["start"]/16000:8.2f}s-{seg["end"]/16000:8.2f}s  →  '
+        f'{top_labels[0]:<20} {top_probs[0]:.3f} | '
+        f'{top_labels[1]:<20} {top_probs[1]:.3f} | '
+        f'{top_labels[2]:<20} {top_probs[0]:.3f} | '
+        f'{top_labels[3]:<20} {top_probs[1]:.3f} | '
+        f'Music_prob {music_prob:.3f}'
+      )
+
+      if top_labels[0] == 'Speech' and 'Music' in top_labels:
+        top_probs[0] = max(top_probs[0] - music_prob * self.music_sensitivity, 0)
+      # top_idx = int(avg_probs.argmax())
+      # top_label = class_names[top_idx]
+      # top_prob = float(avg_probs[top_idx])
+      
+      top_label, top_prob = top_labels[0], top_probs[0]
+
+      print(f'{seg["start"]/16000:8.2f}s-{seg["end"]/16000:8.2f}s  →  {top_label:<20} {top_prob:.3f}')
 
       end_of_last_speech_seg = 0 # end of last speech segment where prob > thershold
 
