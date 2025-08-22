@@ -24,17 +24,19 @@ class SpeechExtractor(AudioProcessor):
     max_bytes: int = settings.MAX_AUDIO_BYTES,
     
     merge_gap_s: int = settings.MERGE_GAP_SECONDS,
-    margin_s: int = settings.MARGIN_SECONDS,
+    margin_s_head: int = settings.MARGIN_SECONDS_HEAD,
+    margin_s_tail: int = settings.MARGIN_SECONDS_TAIL,
     fade_len_s: float = settings.FADE_SECONDS,
-    min_speech_ms: int = settings.MIN_SPEECH_MS,
+    min_speech_s: int = settings.MIN_SPEECH_S,
     speech_threshold: float = settings.SPEECH_THRESHOLD,
   ):
     super().__init__(path, sr, channels, output_sr, output_br, output_ch, max_bytes)
 
     self.merge_gap_s = merge_gap_s
-    self.margin_s = margin_s
+    self.margin_s_head = margin_s_head
+    self.margin_s_tail = margin_s_tail
     self.fade_len_s = fade_len_s
-    self.min_speech_ms = min_speech_ms
+    self.min_speech_s = min_speech_s
     self.speech_threshold = speech_threshold
 
     self.vad_model = vad_model
@@ -75,16 +77,16 @@ class SpeechExtractor(AudioProcessor):
       top_label = class_names[top_idx]
       top_prob = float(avg_probs[top_idx])
 
-      end_of_kept_seg = 0
       log.debug(f"{seg['start']/16000:8.2f}s-{seg['end']/16000:8.2f}s  →  {top_label:<20} {top_prob:.3f}")
-      if speech_seg:
-        end_of_kept_seg = speech_seg[-1]['end']
 
-      if top_label == 'Speech' and (
-        top_prob > self.speech_threshold or
-        (end_of_kept_seg and (seg['start'] - end_of_kept_seg) < self.merge_gap_s * self.processing_sr)
-      ):
-        speech_seg.append(seg)
+      end_of_last_speech_seg = 0 # end of last speech segment where prob > thershold
+
+      if top_label == 'Speech':
+        if top_prob > self.speech_threshold:
+          speech_seg.append(seg)
+          end_of_last_speech_seg = seg['end']
+        elif (end_of_last_speech_seg and (seg['start'] - end_of_last_speech_seg) < self.merge_gap_s * self.processing_sr):
+          speech_seg.append(seg)
 
     if not speech_seg:
       log.warning('no speech. adjust speech_threshold.')
@@ -97,27 +99,34 @@ class SpeechExtractor(AudioProcessor):
     for seg in speech_seg[1:]:
       if seg['start'] - cur_end < self.processing_sr * self.merge_gap_s:
         cur_end = max(cur_end, seg['end'])
-      else:
+      elif (cur_end - cur_start) > (self.min_speech_s * self.processing_sr):
         merged.append({'start': cur_start, 'end': cur_end})
-        log.debug(f'start: {cur_start/self.processing_sr}, end: {cur_end/self.processing_sr}')
+        log.debug(f'APPENDED, start: {cur_start/self.processing_sr}, end: {cur_end/self.processing_sr}')
         cur_start, cur_end = seg['start'], seg['end']
-    merged.append({'start': cur_start, 'end': cur_end})
-    log.debug(f'start: {cur_start/self.processing_sr}, end: {cur_end/self.processing_sr}')
+      else:
+        log.debug(f'TOO SHORT TO APPEND, start: {cur_start/self.processing_sr} end: {cur_end/self.processing_sr}')
+        cur_start, cur_end = seg['start'], seg['end']
+    if (cur_end - cur_start) > (self.min_speech_s * self.processing_sr):
+      merged.append({'start': cur_start, 'end': cur_end})
+      log.debug(f'APPENDED, start: {cur_start/self.processing_sr}, end: {cur_end/self.processing_sr}')
+    else:
+      log.debug(f'TOO SHORT TO APPEND, start: {cur_start/self.processing_sr} end: {cur_end/self.processing_sr}')
     log.info(f'merged: {len(merged)}')
     return merged
 
   def add_margins(self, speech_seg, wav):
     log.info('add margins')
     final_seg = speech_seg.copy()
-    margin = self.processing_sr * self.margin_s
+    margin_head = self.processing_sr * self.margin_s_head
+    margin_tail = self.processing_sr * self.margin_s_tail
     min_margin = self.processing_sr * self.fade_len_s
 
-    if final_seg[0]['start'] >= margin:
-      final_seg[0]['start'] -= (margin // 2)
+    if final_seg[0]['start'] >= margin_head:
+      final_seg[0]['start'] -= (margin_head)
 
     tail_gap = len(wav) - final_seg[-1]['end']
-    if tail_gap >= margin:
-      final_seg[-1]['end'] = min(final_seg[-1]['end'] + margin, len(wav))
+    if tail_gap >= margin_tail:
+      final_seg[-1]['end'] = min(final_seg[-1]['end'] + margin_tail, len(wav))
 
     for i in range(len(speech_seg) - 1):
       log.debug(f'processing: gap #{i}')
@@ -126,16 +135,16 @@ class SpeechExtractor(AudioProcessor):
       gap = gap_end - gap_start
       if gap >= self.processing_sr * self.merge_gap_s:
         log.debug(f'gap #{i} extend...')
-        extended_gap_start = self.find_extended_silence_boundary(gap_start, direction='backward', min_silence_sec=self.margin_s)
-        extended_gap_end = self.find_extended_silence_boundary(gap_end, direction='forward', min_silence_sec=self.margin_s)
+        extended_gap_start = self.find_extended_silence_boundary(gap_start, direction='forward', min_silence_sec=self.margin_s_tail)
+        extended_gap_end = self.find_extended_silence_boundary(gap_end, direction='backward', min_silence_sec=self.margin_s_head)
         if extended_gap_start:
           final_seg[i]['end'] = min(gap_start + min_margin, gap_end)
         else:
-          final_seg[i]['end'] = min(gap_start + margin, gap_end)
+          final_seg[i]['end'] = min(gap_start + margin_tail, gap_end)
         if extended_gap_end:
           final_seg[i+1]['start'] = max(gap_end - min_margin, gap_start)
         else:
-          final_seg[i+1]['start'] = max(gap_end - margin, gap_start)
+          final_seg[i+1]['start'] = max(gap_end - margin_head, gap_start)
 
     return final_seg
 
