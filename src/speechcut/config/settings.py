@@ -103,6 +103,8 @@ class Settings:
   MARGIN_SECONDS_TAIL = int(os.getenv('MARGIN_SECONDS_TAIL', 6))
   FADE_SECONDS = float(os.getenv('FADE_SECONDS', 0.5))
   
+  MUSIC_SENSITIVITY = int(os.getenv('MUSIC_SENSITIVITY', 200))
+  
   LOG_LEVEL = os.getenv('LOG_LEVEL', 'INFO')
 
   # File size limit
