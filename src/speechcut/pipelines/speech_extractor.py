@@ -87,8 +87,8 @@ class SpeechExtractor(AudioProcessor):
         f'{seg["start"]/16000:8.2f}s-{seg["end"]/16000:8.2f}s  →  '
         f'{top_labels[0]:<20} {top_probs[0]:.3f} | '
         f'{top_labels[1]:<20} {top_probs[1]:.3f} | '
-        f'{top_labels[2]:<20} {top_probs[0]:.3f} | '
-        f'{top_labels[3]:<20} {top_probs[1]:.3f} | '
+        f'{top_labels[2]:<20} {top_probs[2]:.3f} | '
+        f'{top_labels[3]:<20} {top_probs[3]:.3f} | '
         f'Music_prob {music_prob:.3f}'
       )
 
@@ -100,7 +100,7 @@ class SpeechExtractor(AudioProcessor):
       
       top_label, top_prob = top_labels[0], top_probs[0]
 
-      print(f'{seg["start"]/16000:8.2f}s-{seg["end"]/16000:8.2f}s  →  {top_label:<20} {top_prob:.3f}')
+      log.debug(f'{seg["start"]/16000:8.2f}s-{seg["end"]/16000:8.2f}s  →  {top_label:<20} {top_prob:.3f}')
 
       end_of_last_speech_seg = 0 # end of last speech segment where prob > thershold
 
