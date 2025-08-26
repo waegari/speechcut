@@ -29,7 +29,7 @@ class SpeechExtractor(AudioProcessor):
     margin_s_tail: int = settings.MARGIN_SECONDS_TAIL,
     fade_len_s: float = settings.FADE_SECONDS,
     min_speech_s: int = settings.MIN_SPEECH_S,
-    speech_threshold: float = settings.SPEECH_THRESHOLD,
+    class_prob_threshold: float = settings.CLASS_PROB_THRESHOLD,
     music_sensitivity: int = settings.MUSIC_SENSITIVITY,
   ):
     super().__init__(path, sr, channels, output_sr, output_br, output_ch, max_bytes)
@@ -39,7 +39,7 @@ class SpeechExtractor(AudioProcessor):
     self.margin_s_tail = margin_s_tail
     self.fade_len_s = fade_len_s
     self.min_speech_s = min_speech_s
-    self.speech_threshold = speech_threshold
+    self.class_prob_threshold = class_prob_threshold
     self.music_sensitivity = music_sensitivity
 
     self.vad_model = vad_model
@@ -47,10 +47,12 @@ class SpeechExtractor(AudioProcessor):
 
   def speech_music_separate(self):
     timestamps, wav = self.get_vad_timestamps()
-    speech_seg = self.sound_classification(timestamps, wav)
-    merged = self.merge_segments(speech_seg)
-    merged = self.add_margins(merged, wav)
-    self.ffmpeg_concat_fade(merged)
+    inverse = self.invert_timestamps(timestamps, wav)
+    music_seg = self.sound_classification(inverse, wav, 'Music')
+    merged = self.merge_segments(music_seg)
+    inversed_merged = self.invert_timestamps(merged, wav)
+    margin_added = self.add_margins(inversed_merged, wav)
+    self.ffmpeg_concat_fade(margin_added)
 
   def get_vad_timestamps(self):
     '''
@@ -66,7 +68,30 @@ class SpeechExtractor(AudioProcessor):
     )
     return speech_timestamps, wav
 
-  def sound_classification(self, timestamps, wav):
+  def invert_timestamps(self, timestamps:list, wav):
+    log.debug(f'timestamps: {timestamps}')
+    eof = len(wav)
+    log.debug(f'eof: {eof}')
+    temp = []
+
+    for ts in timestamps:
+      temp.append(ts['start'])
+      temp.append(ts['end'])
+    log.debug(f'temp: {temp}')
+    if temp[0] == 0:
+      temp.pop(0)
+    else:
+      temp.insert(0, 0)
+    if temp[-1] == eof:
+      temp.pop()
+    else:
+      temp.append(eof)
+
+    inverse = [{'start': temp[i-1], 'end': t} for i, t in enumerate(temp) if i%2]
+    log.debug(f'inverse: {inverse}')
+    return inverse
+
+  def sound_classification(self, timestamps, wav, target_label):
     c_model = self.classification_model
     class_names = c_model.class_names
 
@@ -82,6 +107,7 @@ class SpeechExtractor(AudioProcessor):
       top_labels = [class_names[i] for i in top5_idx]
       top_probs = [float(avg_probs[i]) for i in top5_idx]
       music_prob = float(avg_probs[class_names.index('Music')])
+      speech_prob = float(avg_probs[class_names.index('Speech')])
 
       log.debug(
         f'{seg["start"]/16000:8.2f}s-{seg["end"]/16000:8.2f}s  →  '
@@ -92,27 +118,25 @@ class SpeechExtractor(AudioProcessor):
         f'Music_prob {music_prob:.3f}'
       )
 
-      if top_labels[0] == 'Speech' and 'Music' in top_labels:
-        top_probs[0] = max(top_probs[0] - music_prob * self.music_sensitivity, 0)
       # top_idx = int(avg_probs.argmax())
       # top_label = class_names[top_idx]
       # top_prob = float(avg_probs[top_idx])
-      
+
       top_label, top_prob = top_labels[0], top_probs[0]
 
       log.debug(f'{seg["start"]/16000:8.2f}s-{seg["end"]/16000:8.2f}s  →  {top_label:<20} {top_prob:.3f}')
 
       end_of_last_speech_seg = 0 # end of last speech segment where prob > thershold
 
-      if top_label == 'Speech':
-        if top_prob > self.speech_threshold:
+      if top_label == target_label:
+        if top_prob > self.class_prob_threshold:
           speech_seg.append(seg)
           end_of_last_speech_seg = seg['end']
         elif (end_of_last_speech_seg and (seg['start'] - end_of_last_speech_seg) < self.merge_gap_s * self.processing_sr):
           speech_seg.append(seg)
 
     if not speech_seg:
-      log.warning('no speech. adjust speech_threshold.')
+      log.warning(f'no {target_label}. adjust class_prob_threshold.')
 
     return speech_seg
 
@@ -175,7 +199,7 @@ class SpeechExtractor(AudioProcessor):
     if not segments:
       raise ValueError('segments are empty')
     audio_path = self.source_audio_path
-    
+
     if save_as_mp3:
       br = self.output_br
       ext = '.mp3'
@@ -187,7 +211,7 @@ class SpeechExtractor(AudioProcessor):
     if out_path is None:
       out_path = get_new_filename(audio_path)
     log.info(f'out_path: {out_path}')
-    
+
     filter_parts = []
     concat_inputs = []
 
