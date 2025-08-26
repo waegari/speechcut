@@ -96,11 +96,11 @@ class Settings:
   SILENCE_PADDING = float(os.getenv('SILENCE_PADDING', 0.3))
 
   # VAD settings
-  SPEECH_THRESHOLD = float(os.getenv('SPEECH_THRESHOLD', 0.8))
-  MIN_SPEECH_S = int(os.getenv('MIN_SPEECH_S', 1))
-  MERGE_GAP_SECONDS = int(os.getenv('MERGE_GAP_SECONDS', 10))
-  MARGIN_SECONDS_HEAD = int(os.getenv('MARGIN_SECONDS_HEAD', 2))
-  MARGIN_SECONDS_TAIL = int(os.getenv('MARGIN_SECONDS_TAIL', 6))
+  CLASS_PROB_THRESHOLD = float(os.getenv('CLASS_PROB_THRESHOLD', 0.8))
+  MIN_SPEECH_S = float(os.getenv('MIN_SPEECH_S', 1))
+  MERGE_GAP_SECONDS = float(os.getenv('MERGE_GAP_SECONDS', 10))
+  MARGIN_SECONDS_HEAD = float(os.getenv('MARGIN_SECONDS_HEAD', 2))
+  MARGIN_SECONDS_TAIL = float(os.getenv('MARGIN_SECONDS_TAIL', 2))
   FADE_SECONDS = float(os.getenv('FADE_SECONDS', 0.5))
   
   MUSIC_SENSITIVITY = int(os.getenv('MUSIC_SENSITIVITY', 200))
