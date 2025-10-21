@@ -60,8 +60,11 @@ class WorkerProcess(Process):
             vad_model=vad_model,
             classification_model=cls_model
           )
-          speechExtractor.speech_music_separate()
-          add_processed_program_to_xml(audio_path)
-          self.result_queue.put({'type': 'done', 'id': task_id})
+          separate_success = speechExtractor.speech_music_separate()
+          if separate_success:
+            add_processed_program_to_xml(audio_path)
+            self.result_queue.put({'type': 'done', 'id': task_id})
+          else:
+            self.result_queue.put({'type': 'error', 'id': task_id, 'error': 'no music or speech only part in the audio file'})
         except Exception as e:
           self.result_queue.put({'type': 'error', 'id': task_id, 'error': str(e)})

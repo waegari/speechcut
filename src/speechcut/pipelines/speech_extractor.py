@@ -48,11 +48,18 @@ class SpeechExtractor(AudioProcessor):
   def speech_music_separate(self):
     timestamps, wav = self.get_vad_timestamps()
     inverse = self.invert_timestamps(timestamps, wav)
+    if len(inverse) == 0:
+      log.debug('no music in the audio file')
+      return False
     music_seg = self.sound_classification(inverse, wav, 'Music')
     merged = self.merge_segments(music_seg)
     inversed_merged = self.invert_timestamps(merged, wav)
+    if len(inversed_merged) == 0:
+      log.debug('no speech only part in the audio file')
+      return False
     margin_added = self.add_margins(inversed_merged, wav)
     self.ffmpeg_concat_fade(margin_added)
+    return True
 
   def get_vad_timestamps(self):
     '''
