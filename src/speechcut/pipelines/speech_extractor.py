@@ -58,7 +58,7 @@ class SpeechExtractor(AudioProcessor):
       log.debug('no speech only part in the audio file')
       return False
     if self.get_duration(inversed_merged) < 10:
-      log.debug('speech only audio is too short')
+      log.debug('speech only audio is too short to export')
       return False
     margin_added = self.add_margins(inversed_merged, wav)
     self.ffmpeg_concat_fade(margin_added)
@@ -178,7 +178,7 @@ class SpeechExtractor(AudioProcessor):
       start = int(seg['start'])
       end = int(seg['end'])
       dur =+ (end - start)
-    print(f'dur: {dur}')
+    log.info(f'dur: {dur}')
     return dur / self.processing_sr
 
   def add_margins(self, speech_seg, wav):
