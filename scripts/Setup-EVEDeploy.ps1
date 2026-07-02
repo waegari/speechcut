@@ -81,10 +81,14 @@ else {
 
   $ecosystem = Get-Content $EcosystemPath -Raw
   $ecosystem = $ecosystem -replace "cwd:\s*'[^']*'", "cwd: '$($Root -replace '\\', '/')'"
-  $patchedEcosystem = Join-Path $Root 'ecosystem.config.local.cjs'
+  $patchedEcosystem = Join-Path $Root 'ecosystem.config.js'
   Set-Content -Path $patchedEcosystem -Value $ecosystem -Encoding UTF8
 
-  & pm2 delete eve-api 2>$null | Out-Null
+  $prevEap = $ErrorActionPreference
+  $ErrorActionPreference = 'SilentlyContinue'
+  & pm2 delete eve-api 2>&1 | Out-Null
+  $ErrorActionPreference = $prevEap
+
   & pm2 start $patchedEcosystem
   & pm2 save
   Write-Host 'PM2 started eve-api. Check: pm2 status'

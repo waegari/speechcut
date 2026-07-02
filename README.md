@@ -108,9 +108,11 @@ powershell -ExecutionPolicy Bypass -File .\scripts\Setup-EVEDeploy.ps1
 
 Or manually:
 ```powershell
-pm2 start ecosystem.config.cjs
+pm2 start ecosystem.config.js
 pm2 save
 ```
+
+> **Windows note:** `ecosystem.config.cjs` uses `pythonw.exe` so no console window appears. For debugging with visible logs in the console, switch to `python.exe`.
 
 4. Configure nginx using [`deploy/nginx.conf`](deploy/nginx.conf) as a template (proxy to `127.0.0.1:8001`)
 
