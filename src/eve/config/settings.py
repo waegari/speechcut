@@ -110,5 +110,14 @@ class Settings:
   # File size limit
   MAX_AUDIO_BYTES = int(os.getenv('MAX_AUDIO_BYTES', 100 * 1024 * 1024))  # 100MB
 
+  # API server
+  API_HOST = os.getenv('API_HOST', '127.0.0.1')
+  API_PORT = int(os.getenv('API_PORT', 8001))
+  JOB_DATA_DIR: Path = _norm_env_path('JOB_DATA_DIR', 'data/jobs', ROOT_DIR)
+  JOB_DB_PATH: Path = _norm_env_path('JOB_DB_PATH', 'data/jobs.db', ROOT_DIR)
+  JOB_TIMEOUT_SECONDS = int(os.getenv('JOB_TIMEOUT_SECONDS', 600))
+  JOB_RETENTION_HOURS = int(os.getenv('JOB_RETENTION_HOURS', 24))
+  MAX_UPLOAD_BYTES = int(os.getenv('MAX_UPLOAD_BYTES', MAX_AUDIO_BYTES))
+
 
 settings = Settings()

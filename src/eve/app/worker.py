@@ -52,6 +52,9 @@ class WorkerProcess(Process):
       if mtype == 'process':
         task_id = msg.get('id')
         audio_path = msg.get('path')
+        cut_mode = msg.get('cut_mode', 'aggressive')
+        output_path = msg.get('output_path')
+        update_xml = msg.get('update_xml', True)
 
         try:
           _maybe_delay(audio_path)  # ← Test delay hook
@@ -60,11 +63,17 @@ class WorkerProcess(Process):
             vad_model=vad_model,
             classification_model=cls_model
           )
-          separate_success = speechExtractor.speech_music_separate()
+          if cut_mode == 'conservative':
+            separate_success = speechExtractor.speech_voice_preserve(out_path=output_path)
+            fail_msg = 'no speech segments found in the audio file'
+          else:
+            separate_success = speechExtractor.speech_music_separate(out_path=output_path)
+            fail_msg = 'no music or speech only part in the audio file'
           if separate_success:
-            add_processed_program_to_xml(audio_path)
+            if update_xml:
+              add_processed_program_to_xml(audio_path)
             self.result_queue.put({'type': 'done', 'id': task_id})
           else:
-            self.result_queue.put({'type': 'error', 'id': task_id, 'error': 'no music or speech only part in the audio file'})
+            self.result_queue.put({'type': 'error', 'id': task_id, 'error': fail_msg})
         except Exception as e:
           self.result_queue.put({'type': 'error', 'id': task_id, 'error': str(e)})

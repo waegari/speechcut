@@ -49,7 +49,16 @@ class Supervisor:
       pass
     self._make_queues()
 
-  def process(self, audio_path: str, timeout: int | None = None) -> str:
+  def process(
+    self,
+    audio_path: str,
+    timeout: int | None = None,
+    *,
+    cut_mode: str = 'aggressive',
+    output_path: str | None = None,
+    update_xml: bool = True,
+    error_out: list | None = None,
+  ) -> str:
     '''
     Return value: `'ok' | 'timeout' | 'error'`.
     '''
@@ -57,7 +66,14 @@ class Supervisor:
     self._task_seq += 1
     task_id = self._task_seq
 
-    self.task_queue.put({'type': 'process', 'id': task_id, 'path': str(audio_path)})
+    self.task_queue.put({
+      'type': 'process',
+      'id': task_id,
+      'path': str(audio_path),
+      'cut_mode': cut_mode,
+      'output_path': output_path,
+      'update_xml': update_xml,
+    })
 
     to = timeout or self.default_timeout
     try:
@@ -77,6 +93,8 @@ class Supervisor:
             return 'ok'
           else:
             log.error(msg)
+            if error_out is not None:
+              error_out.append(msg.get('error', 'unknown error'))
             self._kill_worker()
             return 'error'
     except queue.Empty:

@@ -71,13 +71,76 @@ Remove-Item .venv -Recurse -Force -ErrorAction SilentlyContinue
 powershell -ExecutionPolicy Bypass -File .\scripts\install.ps1
 ```
 
-### Run (at .venv, for debugging)
+### Run API server (development)
+
 ```powershell
-.\.venv\Scripts\python.exe -m eve --poll 60 --timeout 600
+.\.venv\Scripts\python.exe -m uvicorn eve.api.main:app --host 127.0.0.1 --port 8001
 ```
 
-### Setup Service & Run (at .venv)
+Health check: `http://127.0.0.1:8001/health`
+
+### Deploy on Windows Server (PM2 + nginx)
+
+Recommended production layout:
+
+```
+D:\app\eve\
+├── .venv\
+├── .env
+├── bin\ffmpeg.exe
+├── data\jobs\
+├── logs\
+├── ecosystem.config.cjs
+└── src\eve\
+```
+
+1. Install dependencies (venv)
 ```powershell
+powershell -ExecutionPolicy Bypass -File .\scripts\install.ps1
+```
+
+2. Copy `.env.example` to `.env` and adjust paths (`JOB_DATA_DIR`, `LOG_DIR`, etc.)
+
+3. Start with PM2
+```powershell
+powershell -ExecutionPolicy Bypass -File .\scripts\Setup-EVEDeploy.ps1
+```
+
+Or manually:
+```powershell
+pm2 start ecosystem.config.cjs
+pm2 save
+```
+
+4. Configure nginx using [`deploy/nginx.conf`](deploy/nginx.conf) as a template (proxy to `127.0.0.1:8001`)
+
+### API endpoints
+
+| Method | Path | Description |
+|--------|------|-------------|
+| `POST` | `/api/v1/jobs` | Upload audio + `cut_mode` → returns `job_id` |
+| `GET` | `/api/v1/jobs/{job_id}` | Job status |
+| `GET` | `/api/v1/jobs/{job_id}/download` | Download processed file |
+| `GET` | `/health` | Health check |
+
+### Cut modes (`cut_mode` form field)
+
+* `aggressive` — Detect music segments with YAMNet, invert to remove music (heavy cut)
+* `conservative` — Keep VAD speech segments only, connect with fade in/out (light cut)
+
+Example:
+```powershell
+curl -X POST "http://127.0.0.1:8001/api/v1/jobs" `
+  -F "file=@sample.wav" `
+  -F "cut_mode=aggressive"
+```
+
+### Legacy batch mode (directory polling)
+
+The original NSSM-based batch scheduler is still available but not used in the API deployment:
+
+```powershell
+.\.venv\Scripts\python.exe -m eve --poll 60 --timeout 600
 powershell -ExecutionPolicy Bypass -File .\scripts\Setup-EVEService.ps1
 ```
 ---
@@ -93,4 +156,4 @@ Licensed under the **Apache License 2.0**. See [`LICENSE`](./LICENSE) for detail
 * Music detection is handled by [YAMNet](https://github.com/tensorflow/models/tree/master/research/audioset/yamnet) audio classifier.
 * Voice regions are segmented using [Silero-VAD](https://github.com/snakers4/silero-vad?tab=readme-ov-file).
 * Speech with background music is preserved intentionally.
-* Currently designed for local or internal use on Windows.
+* Production deployment uses FastAPI + uvicorn on `127.0.0.1:8001`, managed by PM2 and exposed via nginx.

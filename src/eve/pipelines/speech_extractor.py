@@ -45,7 +45,8 @@ class SpeechExtractor(AudioProcessor):
     self.vad_model = vad_model
     self.classification_model = classification_model
 
-  def speech_music_separate(self):
+  def speech_music_separate(self, out_path=None):
+    '''Aggressive mode: detect music segments, invert to keep speech-only parts.'''
     timestamps, wav = self.get_vad_timestamps()
     inverse = self.invert_timestamps(timestamps, wav)
     if len(inverse) == 0:
@@ -61,7 +62,24 @@ class SpeechExtractor(AudioProcessor):
       log.debug('speech only audio is too short to export')
       return False
     margin_added = self.add_margins(inversed_merged, wav)
-    self.ffmpeg_concat_fade(margin_added)
+    self.ffmpeg_concat_fade(margin_added, out_path=out_path)
+    return True
+
+  def speech_voice_preserve(self, out_path=None):
+    '''Conservative mode: keep VAD speech segments with fade in/out.'''
+    timestamps, wav = self.get_vad_timestamps()
+    if len(timestamps) == 0:
+      log.debug('no speech in the audio file')
+      return False
+    merged = self.merge_segments(timestamps)
+    if len(merged) == 0:
+      log.debug('no speech segments long enough to export')
+      return False
+    if self.get_duration(merged) < 10:
+      log.debug('speech only audio is too short to export')
+      return False
+    margin_added = self.add_margins(merged, wav)
+    self.ffmpeg_concat_fade(margin_added, out_path=out_path)
     return True
 
   def get_vad_timestamps(self):
@@ -268,7 +286,7 @@ class SpeechExtractor(AudioProcessor):
     else:
       cmd += ['-c:a', 'flac']
 
-    cmd.append(out_path)
+    cmd.append(str(out_path))
     subprocess.run(cmd, check=True,
                    stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
                    **no_window_kwargs())

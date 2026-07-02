@@ -13,3 +13,9 @@ onnxruntime
 
 # env
 python-dotenv
+
+# API server
+fastapi
+uvicorn[standard]
+python-multipart
+aiofiles

@@ -14,3 +14,4 @@ where = ['src']
 
 [project.scripts]
 eve = 'eve.__main__:main'
+eve-api = 'eve.api.main:run'

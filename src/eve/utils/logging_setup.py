@@ -45,3 +45,26 @@ def install_log_queue_handler(log_queue: Queue, *, level: str = 'INFO'):
   root.setLevel(getattr(logging, level.upper(), logging.INFO))
   qh = logging.handlers.QueueHandler(log_queue)
   root.addHandler(qh)
+
+
+def setup_logging(
+  log_dir: str | Path | None = None,
+  level: str | None = None,
+  filename: str = 'eve-api.log',
+):
+  '''Configure root logger with a rotating file handler (API server process).'''
+  log_dir = Path(log_dir or settings.LOG_DIR)
+  log_dir.mkdir(parents=True, exist_ok=True)
+  level_name = (level or settings.LOG_LEVEL or 'INFO').upper()
+  log_level = getattr(logging, level_name, logging.INFO)
+
+  root = logging.getLogger()
+  root.handlers.clear()
+  root.setLevel(log_level)
+
+  file_handler = logging.handlers.TimedRotatingFileHandler(
+    log_dir / filename, when='midnight', backupCount=14, encoding='utf-8'
+  )
+  file_handler.setFormatter(logging.Formatter(FMT, DATEFMT))
+  file_handler.setLevel(log_level)
+  root.addHandler(file_handler)
