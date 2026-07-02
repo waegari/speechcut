@@ -112,7 +112,7 @@ pm2 start ecosystem.config.js
 pm2 save
 ```
 
-> **Windows note:** `ecosystem.config.cjs` uses `pythonw.exe` so no console window appears. For debugging with visible logs in the console, switch to `python.exe`.
+> **Windows note:** `ecosystem.config.cjs` uses `pythonw.exe` + `eve.api.launcher` + `windowsHide: true` to avoid console popups. ML worker child processes also spawn via `pythonw.exe`. For debugging, switch to `python.exe` and `-m uvicorn eve.api.main:app --host 127.0.0.1 --port 8001`.
 
 4. Configure nginx using [`deploy/nginx.conf`](deploy/nginx.conf) as a template (proxy to `127.0.0.1:8001`)
 
