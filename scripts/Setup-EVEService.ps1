@@ -55,33 +55,33 @@ if (-not (Test-Path $Root)) {
 New-Item -ItemType Directory -Force -Path (Join-Path $Root "logs") | Out-Null
 
 # 혹시 기존 서비스가 있으면 중지/제거(원하면 유지해도 됩니다)
-# & $nssm stop speechcut 2>$null | Out-Null
-# & $nssm remove speechcut confirm 2>$null | Out-Null
+# & $nssm stop eve 2>$null | Out-Null
+# & $nssm remove eve confirm 2>$null | Out-Null
 
 # ==== 새 서비스 설치 ====
 # Application/Parameters 한 번에
-& $nssm install speechcut "$py" "-X utf8 -m speechcut --poll 60 --timeout 600"
+& $nssm install eve "$py" "-X utf8 -m eve --poll 60 --timeout 600"
 
 # 작업 디렉터리(중요: 상대경로/ .env / 로그 경로 안정화)
-& $nssm set speechcut AppDirectory "$Root"
+& $nssm set eve AppDirectory "$Root"
 
 # 표준출력/표준에러를 같은 파일로(배치 없이 병합)
-& $nssm set speechcut AppStdout "$log"
-& $nssm set speechcut AppStderr "$log"
+& $nssm set eve AppStdout "$log"
+& $nssm set eve AppStderr "$log"
 
 # 환경변수(멀티 문자열: 각 항목은 '별도 인자'로 전달)
-& $nssm set speechcut AppEnvironmentExtra `
+& $nssm set eve AppEnvironmentExtra `
   "PYTHONUNBUFFERED=1" `
   "PYTHONIOENCODING=UTF-8" `
   "PYTHONIOENCODING_ERRORS=replace"
 
 # 자동 시작 + 크래시 재시작
-& $nssm set speechcut Start SERVICE_AUTO_START
-& $nssm set speechcut AppExit Default Restart
+& $nssm set eve Start SERVICE_AUTO_START
+& $nssm set eve AppExit Default Restart
 
 # 시작
-& $nssm start speechcut
+& $nssm start eve
 
 # 설정/상태 확인
-# & $nssm dump speechcut
-# sc query speechcut
+# & $nssm dump eve
+# sc query eve

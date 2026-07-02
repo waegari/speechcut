@@ -3,12 +3,12 @@ import time
 import logging
 from pathlib import Path
 from datetime import datetime, timedelta
-from speechcut.config.settings import settings
-from speechcut.app.manager import Supervisor
-from speechcut.utils.editing_metadata import get_new_filename
-from speechcut.utils.locking import ProcessingLock
+from eve.config.settings import settings
+from eve.app.manager import Supervisor
+from eve.utils.editing_metadata import get_new_filename
+from eve.utils.locking import ProcessingLock
 
-log = logging.getLogger('speechcut.scheduler')
+log = logging.getLogger('eve.scheduler')
 AUDIO_EXTS = {'.wav', '.mp3', '.flac'}
 
 def _marker_paths(src: Path) -> dict[str, Path]:

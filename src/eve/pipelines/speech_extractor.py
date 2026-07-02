@@ -3,10 +3,10 @@ from pathlib import Path
 from typing import Union
 import numpy as np
 
-from speechcut.audio.processor import AudioProcessor
-from speechcut.config.settings import settings
-from speechcut.utils.editing_metadata import get_new_filename
-from speechcut.utils.subproc import no_window_kwargs
+from eve.audio.processor import AudioProcessor
+from eve.config.settings import settings
+from eve.utils.editing_metadata import get_new_filename
+from eve.utils.subproc import no_window_kwargs
 
 log = logging.getLogger(__name__)
 

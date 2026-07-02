@@ -6,10 +6,10 @@ from pathlib import Path
 from typing import Union
 import ffmpeg
 
-from speechcut.config.settings import settings
-from speechcut.utils.subproc import no_window_kwargs
+from eve.config.settings import settings
+from eve.utils.subproc import no_window_kwargs
 
-log = logging.getLogger('speechcut.scheduler')
+log = logging.getLogger('eve.scheduler')
 AUDIO_EXTS = {'.wav', '.mp3', '.flac'}
 
 class AudioProcessor:

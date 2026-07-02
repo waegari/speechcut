@@ -1,4 +1,4 @@
-# 🎙️ speechcut — Automatic Speech-Only Radio Replayer
+# 🎙️ EVE — Efficient Voice Extraction
 
 Automatically generates replay-friendly versions of radio shows by removing **all standalone music segments**, regardless of copyright status, while preserving speech and DJ talk — including speech with background music.
 Designed to support compliance with replay service policies and mitigate copyright risks.
@@ -73,12 +73,12 @@ powershell -ExecutionPolicy Bypass -File .\scripts\install.ps1
 
 ### Run (at .venv, for debugging)
 ```powershell
-.\.venv\Scripts\python.exe -m speechcut --poll 60 --timeout 600
+.\.venv\Scripts\python.exe -m eve --poll 60 --timeout 600
 ```
 
 ### Setup Service & Run (at .venv)
 ```powershell
-powershell -ExecutionPolicy Bypass -File .\scripts\Setup-SpeechcutService.ps1
+powershell -ExecutionPolicy Bypass -File .\scripts\Setup-EVEService.ps1
 ```
 ---
 

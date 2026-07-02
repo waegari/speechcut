@@ -3,7 +3,7 @@ requires = ['setuptools>=70', 'wheel>=0.42']
 build-backend = 'setuptools.build_meta'
 
 [project]
-name = 'speechcut'
+name = 'eve'
 version = '0.0.1'
 description = 'Periodic speech extraction with resident worker'
 requires-python = '>=3.10'
@@ -13,4 +13,4 @@ readme = 'README.md'
 where = ['src']
 
 [project.scripts]
-speechcut = 'speechcut.__main__:main'
+eve = 'eve.__main__:main'

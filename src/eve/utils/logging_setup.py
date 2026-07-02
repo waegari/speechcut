@@ -5,13 +5,13 @@ from multiprocessing import Queue
 from pathlib import Path
 import os
 
-from speechcut.config.settings import settings
+from eve.config.settings import settings
 
 FMT = '%(asctime)s %(levelname)s [pid=%(process)d] [%(name)s] %(message)s'
 DATEFMT = '%Y-%m-%d %H:%M:%S'
 
 def setup_log_listener(log_queue: Queue, *, log_dir: str | Path | None = None,
-           level: str | None = None, filename: str = 'speechcut.log',
+           level: str | None = None, filename: str = 'eve.log',
            when: str = 'midnight', backup_count: int = 14):
   '''
   Called in the main process: start a QueueListener and attach handlers (file rotation + console).

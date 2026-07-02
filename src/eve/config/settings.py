@@ -8,7 +8,7 @@ from typing import Iterable
 from pathlib import Path
 from dotenv import load_dotenv
 
-# <root>/src/speechcut/config/settings.py
+# <root>/src/eve/config/settings.py
 _THIS = Path(__file__).resolve()
 _SRC_DIR = _THIS.parents[2]
 _ROOT_DIR = _SRC_DIR.parent

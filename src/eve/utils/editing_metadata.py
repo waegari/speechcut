@@ -3,7 +3,7 @@ from pathlib import Path
 import xml.etree.ElementTree as ET
 import logging
 
-from speechcut.config.settings import settings 
+from eve.config.settings import settings 
 
 log = logging.getLogger(__name__)
 

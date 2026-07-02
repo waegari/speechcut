@@ -5,8 +5,8 @@ from pathlib import Path
 from typing import Union, List, Dict
 
 import numpy as np
-from speechcut.config.settings import settings
-from speechcut.ml.classifier.yamnet import YamnetWrapper
+from eve.config.settings import settings
+from eve.ml.classifier.yamnet import YamnetWrapper
 
 log = logging.getLogger(__name__)
 

@@ -1,9 +1,9 @@
 import logging
 import queue
 import multiprocessing as mp
-from speechcut.app.worker import WorkerProcess
+from eve.app.worker import WorkerProcess
 
-log = logging.getLogger('speechcut.manager')
+log = logging.getLogger('eve.manager')
 AUDIO_EXTS = {'.wav', '.mp3', '.flac'}
 
 class Supervisor:

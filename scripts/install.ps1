@@ -2,7 +2,7 @@
 # powershell -ExecutionPolicy Bypass -File .\scripts\install.ps1
 
 # to run, run:
-# .\.venv\Scripts\speechcut.exe --poll 60 --timeout 600
+# .\.venv\Scripts\eve.exe --poll 60 --timeout 600
 
 param(
   [string]$Root,
@@ -134,4 +134,4 @@ if (-not (Test-VcRedistInstalled)) {
 }
 
 Write-Host "Installed. To run:"
-Write-Host "`"$Venv\Scripts\speechcut.exe`" --poll 60 --timeout 600"
+Write-Host "`"$Venv\Scripts\eve.exe`" --poll 60 --timeout 600"

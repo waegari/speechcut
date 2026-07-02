@@ -1,10 +1,10 @@
 import os, re, time, logging
 from multiprocessing import Process
-from speechcut.utils.logging_setup import install_log_queue_handler
-from speechcut.utils.editing_metadata import add_processed_program_to_xml
-from speechcut.ml.vad.silero import SileroVADWrapper
-from speechcut.ml.classifier.yamnet import YamnetWrapper
-from speechcut.pipelines.speech_extractor import SpeechExtractor
+from eve.utils.logging_setup import install_log_queue_handler
+from eve.utils.editing_metadata import add_processed_program_to_xml
+from eve.ml.vad.silero import SileroVADWrapper
+from eve.ml.classifier.yamnet import YamnetWrapper
+from eve.pipelines.speech_extractor import SpeechExtractor
 
 AUDIO_EXTS = {'.wav', '.mp3', '.flac'}
 DELAY_PATTERN = re.compile(r'__delay(\d+)', re.IGNORECASE)
@@ -15,7 +15,7 @@ def _maybe_delay(audio_path: str):
   m = DELAY_PATTERN.search(basename)
   if m:
     sec = int(m.group(1))
-    logging.getLogger('speechcut.worker').debug(f'[worker] simulate delay: {sec}s for {basename}')
+    logging.getLogger('eve.worker').debug(f'[worker] simulate delay: {sec}s for {basename}')
     time.sleep(sec)
 
 class WorkerProcess(Process):
@@ -28,7 +28,7 @@ class WorkerProcess(Process):
   def run(self):
     if self.log_queue is not None:
       install_log_queue_handler(self.log_queue)
-    log = logging.getLogger('speechcut.worker')
+    log = logging.getLogger('eve.worker')
     try:
       log.info(f'[worker] starting, pid={os.getpid()}')
       vad_model = SileroVADWrapper()
