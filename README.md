@@ -51,7 +51,7 @@ To avoid copyright issues, this tool removes **all music segments**, even if the
 
 ### <span style="color:orange">**Prerequisites**</span>
 
-* Python 3.11+
+* Python 3.10
 * FFmpeg installed and available in PATH, OR:
   * <span style="color:orange">**project-root\bin\ffmpeg.exe, ffprobe.exe MUST be ADDED**</span>
 * [VC++ runtime](https://learn.microsoft.com/en-us/cpp/windows/latest-supported-vc-redist?view=msvc-170) installed
