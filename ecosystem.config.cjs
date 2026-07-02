@@ -1,12 +1,11 @@
 module.exports = {
   apps: [{
     name: 'eve-api',
-    // launcher: hide console + spawn workers via pythonw.exe on Windows
+    // pythonw.exe: no console window on Windows (use python.exe for debugging)
     script: '.venv/Scripts/pythonw.exe',
-    args: '-m eve.api.launcher',
+    args: '-m uvicorn eve.api.main:app --host 127.0.0.1 --port 8001',
     cwd: 'D:/app/eve',
     interpreter: 'none',
-    windowsHide: true,
     env: {
       PYTHONUNBUFFERED: '1',
       PYTHONIOENCODING: 'UTF-8',

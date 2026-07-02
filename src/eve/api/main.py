@@ -20,9 +20,6 @@ log = logging.getLogger('eve.api')
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-  from eve.utils.win_process import apply_windows_process_hacks
-
-  apply_windows_process_hacks()
   os.environ['PATH'] = str(settings.FFMPEG_BIN.parent) + os.pathsep + os.environ.get('PATH', '')
   try:
     mp.set_start_method('spawn', force=True)
