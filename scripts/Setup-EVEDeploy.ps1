@@ -79,10 +79,22 @@ else {
     throw "ecosystem config not found: $EcosystemPath"
   }
 
+  $vbsPath = Join-Path $Root 'scripts\start-eve-api-hidden.vbs'
+  if (-not (Test-Path $vbsPath)) {
+    throw "VBS launcher not found: $vbsPath"
+  }
+
+  $pythonw = Join-Path $Root '.venv\Scripts\pythonw.exe'
+  if (-not (Test-Path $pythonw)) {
+    throw "pythonw not found (required for headless PM2): $pythonw"
+  }
+
+  $rootPosix = $Root -replace '\\', '/'
   $ecosystem = Get-Content $EcosystemPath -Raw
-  $ecosystem = $ecosystem -replace "cwd:\s*'[^']*'", "cwd: '$($Root -replace '\\', '/')'"
+  $ecosystem = $ecosystem -replace '__EVE_ROOT__', $rootPosix
   $patchedEcosystem = Join-Path $Root 'ecosystem.config.js'
   Set-Content -Path $patchedEcosystem -Value $ecosystem -Encoding UTF8
+  Write-Host "Wrote PM2 config: $patchedEcosystem"
 
   $prevEap = $ErrorActionPreference
   $ErrorActionPreference = 'SilentlyContinue'

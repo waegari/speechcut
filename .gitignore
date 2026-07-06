@@ -216,3 +216,6 @@ bin/ffprobe.exe
 # logs
 logs/
 *.log
+
+# PM2: generated from ecosystem.config.cjs with machine-specific paths
+ecosystem.config.js

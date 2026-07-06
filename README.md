@@ -106,13 +106,17 @@ powershell -ExecutionPolicy Bypass -File .\scripts\install.ps1
 powershell -ExecutionPolicy Bypass -File .\scripts\Setup-EVEDeploy.ps1
 ```
 
-Or manually:
+Or manually (generate `ecosystem.config.js` with your install path first):
 ```powershell
+# Replace C:/eve with your project root
+(Get-Content ecosystem.config.cjs -Raw) -replace '__EVE_ROOT__','C:/eve' |
+  Set-Content ecosystem.config.js -Encoding UTF8
+pm2 delete eve-api
 pm2 start ecosystem.config.js
 pm2 save
 ```
 
-> **Windows note:** PM2 uses `wscript.exe` + `scripts/start-eve-api-hidden.vbs` to start `pythonw.exe` without a console window. For debugging, run directly: `.venv\Scripts\python.exe -m uvicorn eve.api.main:app --host 127.0.0.1 --port 8001`
+> **Windows note:** PM2 runs `wscript.exe` → `scripts/start-eve-api-hidden.vbs` → `pythonw.exe` (no console window). Do **not** point PM2 at `python.exe` directly. For debugging only: `.venv\Scripts\python.exe -m uvicorn eve.api.main:app --host 127.0.0.1 --port 8001`
 
 4. Configure nginx using [`deploy/nginx.conf`](deploy/nginx.conf) as a template (proxy to `127.0.0.1:8001`)
 
