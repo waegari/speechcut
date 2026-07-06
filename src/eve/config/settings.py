@@ -116,7 +116,7 @@ class Settings:
   JOB_DATA_DIR: Path = _norm_env_path('JOB_DATA_DIR', 'data/jobs', ROOT_DIR)
   JOB_DB_PATH: Path = _norm_env_path('JOB_DB_PATH', 'data/jobs.db', ROOT_DIR)
   JOB_TIMEOUT_SECONDS = int(os.getenv('JOB_TIMEOUT_SECONDS', 600))
-  JOB_RETENTION_HOURS = int(os.getenv('JOB_RETENTION_HOURS', 24))
+  JOB_RETENTION_HOURS = int(os.getenv('JOB_RETENTION_HOURS', 6))
   MAX_UPLOAD_BYTES = int(os.getenv('MAX_UPLOAD_BYTES', MAX_AUDIO_BYTES))
 
 

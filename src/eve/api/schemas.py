@@ -29,10 +29,13 @@ class JobStatusResponse(BaseModel):
   status: JobStatus
   cut_mode: CutMode
   input_filename: str
+  unchanged: bool = False
+  result_message: str | None = None
   error: str | None = None
   created_at: datetime
   updated_at: datetime
   completed_at: datetime | None = None
+  expires_at: datetime | None = None
 
 
 class HealthResponse(BaseModel):

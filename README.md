@@ -130,6 +130,20 @@ pm2 save
 * `aggressive` — Detect music segments with YAMNet, invert to remove music (heavy cut)
 * `conservative` — Keep VAD speech segments only, connect with fade in/out (light cut)
 
+### Job status fields
+
+`GET /api/v1/jobs/{job_id}` includes:
+
+| Field | Description |
+|-------|-------------|
+| `status` | `queued`, `processing`, `completed`, or `failed` |
+| `unchanged` | `true` when aggressive mode found no music to cut (output equals input) |
+| `result_message` | e.g. `오디오 파일에서 음악 구간이 검출되지 않습니다` when `unchanged` is true |
+| `expires_at` | Download deadline (`completed_at` + `JOB_RETENTION_HOURS`, default 6 hours) |
+| `error` | Set only when `status` is `failed` |
+
+Completed/failed jobs and their files under `data/jobs/` are deleted automatically after `JOB_RETENTION_HOURS` (default **6 hours**).
+
 Example:
 ```powershell
 curl -X POST "http://127.0.0.1:8001/api/v1/jobs" `

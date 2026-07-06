@@ -3,11 +3,12 @@ from __future__ import annotations
 import shutil
 import sqlite3
 import uuid
-from datetime import datetime
+from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Any
 
 from eve.api.schemas import CutMode, JobStatus
+from eve.config.settings import settings
 
 
 class JobStore:
@@ -39,12 +40,26 @@ class JobStore:
           completed_at TEXT
         )
       ''')
+      self._migrate(conn)
       conn.commit()
+
+  def _migrate(self, conn: sqlite3.Connection) -> None:
+    cols = {row[1] for row in conn.execute('PRAGMA table_info(jobs)').fetchall()}
+    if 'result_message' not in cols:
+      conn.execute('ALTER TABLE jobs ADD COLUMN result_message TEXT')
+    if 'unchanged' not in cols:
+      conn.execute('ALTER TABLE jobs ADD COLUMN unchanged INTEGER NOT NULL DEFAULT 0')
 
   def _now(self) -> str:
     return datetime.utcnow().isoformat()
 
   def _row_to_dict(self, row: sqlite3.Row) -> dict[str, Any]:
+    completed_at = datetime.fromisoformat(row['completed_at']) if row['completed_at'] else None
+    expires_at = None
+    if completed_at and row['status'] in (JobStatus.completed.value, JobStatus.failed.value):
+      expires_at = completed_at + timedelta(hours=settings.JOB_RETENTION_HOURS)
+    unchanged = bool(row['unchanged']) if 'unchanged' in row.keys() else False
+    result_message = row['result_message'] if 'result_message' in row.keys() else None
     return {
       'job_id': row['id'],
       'status': JobStatus(row['status']),
@@ -52,10 +67,13 @@ class JobStore:
       'input_filename': row['input_filename'],
       'input_path': row['input_path'],
       'output_path': row['output_path'],
+      'unchanged': unchanged,
+      'result_message': result_message,
       'error': row['error'],
       'created_at': datetime.fromisoformat(row['created_at']),
       'updated_at': datetime.fromisoformat(row['updated_at']),
-      'completed_at': datetime.fromisoformat(row['completed_at']) if row['completed_at'] else None,
+      'completed_at': completed_at,
+      'expires_at': expires_at,
     }
 
   def create_job(self, cut_mode: CutMode, input_filename: str) -> tuple[str, Path, Path]:
@@ -101,6 +119,8 @@ class JobStore:
     status: JobStatus,
     *,
     error: str | None = None,
+    result_message: str | None = None,
+    unchanged: bool = False,
   ) -> None:
     now = self._now()
     completed_at = now if status in (JobStatus.completed, JobStatus.failed) else None
@@ -108,10 +128,11 @@ class JobStore:
       conn.execute(
         '''
         UPDATE jobs
-        SET status = ?, error = ?, updated_at = ?, completed_at = COALESCE(?, completed_at)
+        SET status = ?, error = ?, result_message = ?, unchanged = ?,
+            updated_at = ?, completed_at = COALESCE(?, completed_at)
         WHERE id = ?
         ''',
-        (status.value, error, now, completed_at, job_id),
+        (status.value, error, result_message, int(unchanged), now, completed_at, job_id),
       )
       conn.commit()
 
@@ -127,7 +148,8 @@ class JobStore:
         conn.execute(
           '''
           UPDATE jobs
-          SET status = ?, error = NULL, updated_at = ?, completed_at = NULL
+          SET status = ?, error = NULL, result_message = NULL, unchanged = 0,
+              updated_at = ?, completed_at = NULL
           WHERE status = ?
           ''',
           (JobStatus.queued.value, now, JobStatus.processing.value),

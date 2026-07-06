@@ -58,6 +58,7 @@ class Supervisor:
     output_path: str | None = None,
     update_xml: bool = True,
     error_out: list | None = None,
+    result_out: list | None = None,
   ) -> str:
     '''
     Return value: `'ok' | 'timeout' | 'error'`.
@@ -90,6 +91,11 @@ class Supervisor:
           if msg.get('id') != task_id:
             continue
           if mtype == 'done':
+            if result_out is not None:
+              result_out.append({
+                'bypassed': bool(msg.get('bypassed')),
+                'message': msg.get('message'),
+              })
             return 'ok'
           else:
             log.error(msg)

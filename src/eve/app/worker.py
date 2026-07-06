@@ -64,16 +64,23 @@ class WorkerProcess(Process):
             classification_model=cls_model
           )
           if cut_mode == 'conservative':
-            separate_success = speechExtractor.speech_voice_preserve(out_path=output_path)
-            fail_msg = 'no speech segments found in the audio file'
+            outcome = speechExtractor.speech_voice_preserve(out_path=output_path)
           else:
-            separate_success = speechExtractor.speech_music_separate(out_path=output_path)
-            fail_msg = 'no music or speech only part in the audio file'
-          if separate_success:
-            if update_xml:
+            outcome = speechExtractor.speech_music_separate(out_path=output_path)
+          if outcome.ok:
+            if update_xml and not outcome.bypassed:
               add_processed_program_to_xml(audio_path)
-            self.result_queue.put({'type': 'done', 'id': task_id})
+            self.result_queue.put({
+              'type': 'done',
+              'id': task_id,
+              'bypassed': outcome.bypassed,
+              'message': outcome.message,
+            })
           else:
-            self.result_queue.put({'type': 'error', 'id': task_id, 'error': fail_msg})
+            self.result_queue.put({
+              'type': 'error',
+              'id': task_id,
+              'error': outcome.message or 'processing failed',
+            })
         except Exception as e:
           self.result_queue.put({'type': 'error', 'id': task_id, 'error': str(e)})

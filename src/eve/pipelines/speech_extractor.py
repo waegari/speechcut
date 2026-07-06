@@ -1,10 +1,11 @@
-import subprocess, logging
+import subprocess, logging, shutil
 from pathlib import Path
 from typing import Union
 import numpy as np
 
 from eve.audio.processor import AudioProcessor
 from eve.config.settings import settings
+from eve.pipelines.outcome import NO_MUSIC_DETECTED_MESSAGE, ProcessingOutcome
 from eve.utils.editing_metadata import get_new_filename
 from eve.utils.subproc import no_window_kwargs
 
@@ -45,42 +46,55 @@ class SpeechExtractor(AudioProcessor):
     self.vad_model = vad_model
     self.classification_model = classification_model
 
-  def speech_music_separate(self, out_path=None):
+  def speech_music_separate(self, out_path=None) -> ProcessingOutcome:
     '''Aggressive mode: detect music segments, invert to keep speech-only parts.'''
     timestamps, wav = self.get_vad_timestamps()
     inverse = self.invert_timestamps(timestamps, wav)
     if len(inverse) == 0:
-      log.debug('no music in the audio file')
-      return False
+      log.info('no non-speech gaps; bypassing with unchanged output')
+      return self._bypass_unchanged(out_path, NO_MUSIC_DETECTED_MESSAGE)
     music_seg = self.sound_classification(inverse, wav, 'Music')
+    if not music_seg:
+      log.info('no music segments detected; bypassing with unchanged output')
+      return self._bypass_unchanged(out_path, NO_MUSIC_DETECTED_MESSAGE)
     merged = self.merge_segments(music_seg)
+    if not merged:
+      log.info('no music segments long enough after merge; bypassing with unchanged output')
+      return self._bypass_unchanged(out_path, NO_MUSIC_DETECTED_MESSAGE)
     inversed_merged = self.invert_timestamps(merged, wav)
     if len(inversed_merged) == 0:
       log.debug('no speech only part in the audio file')
-      return False
+      return ProcessingOutcome(ok=False, message='no speech-only parts remain after music removal')
     if self.get_duration(inversed_merged) < 10:
       log.debug('speech only audio is too short to export')
-      return False
+      return ProcessingOutcome(ok=False, message='speech-only audio is too short to export')
     margin_added = self.add_margins(inversed_merged, wav)
     self.ffmpeg_concat_fade(margin_added, out_path=out_path)
-    return True
+    return ProcessingOutcome(ok=True)
 
-  def speech_voice_preserve(self, out_path=None):
+  def speech_voice_preserve(self, out_path=None) -> ProcessingOutcome:
     '''Conservative mode: keep VAD speech segments with fade in/out.'''
     timestamps, wav = self.get_vad_timestamps()
     if len(timestamps) == 0:
       log.debug('no speech in the audio file')
-      return False
+      return ProcessingOutcome(ok=False, message='no speech segments found in the audio file')
     merged = self.merge_segments(timestamps)
     if len(merged) == 0:
       log.debug('no speech segments long enough to export')
-      return False
+      return ProcessingOutcome(ok=False, message='no speech segments long enough to export')
     if self.get_duration(merged) < 10:
       log.debug('speech only audio is too short to export')
-      return False
+      return ProcessingOutcome(ok=False, message='speech-only audio is too short to export')
     margin_added = self.add_margins(merged, wav)
     self.ffmpeg_concat_fade(margin_added, out_path=out_path)
-    return True
+    return ProcessingOutcome(ok=True)
+
+  def _bypass_unchanged(self, out_path, message: str) -> ProcessingOutcome:
+    if out_path is None:
+      out_path = get_new_filename(self.source_audio_path)
+    shutil.copy2(self.source_audio_path, out_path)
+    log.info('bypass: copied input to %s', out_path)
+    return ProcessingOutcome(ok=True, bypassed=True, message=message)
 
   def get_vad_timestamps(self):
     '''
@@ -98,6 +112,9 @@ class SpeechExtractor(AudioProcessor):
 
   def invert_timestamps(self, timestamps:list, wav):
     log.debug(f'timestamps: {timestamps}')
+    if not timestamps:
+      log.debug('empty timestamps; no inverse segments')
+      return []
     eof = len(wav)
     log.debug(f'eof: {eof}')
     temp = []
@@ -169,6 +186,9 @@ class SpeechExtractor(AudioProcessor):
     return speech_seg
 
   def merge_segments(self, speech_seg):
+    if not speech_seg:
+      log.info('merged: 0 (empty input)')
+      return []
     merged = []
     cur_start, cur_end = speech_seg[0]['start'], speech_seg[0]['end']
     for seg in speech_seg[1:]:

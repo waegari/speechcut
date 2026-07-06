@@ -63,6 +63,7 @@ class WorkerBridge:
     input_path = Path(job['input_path'])
     output_path = Path(job['output_path'])
     errors: list[str] = []
+    results: list[dict] = []
 
     log.info('processing job %s (%s)', job_id, job['cut_mode'].value)
     status = self._supervisor.process(
@@ -71,11 +72,18 @@ class WorkerBridge:
       output_path=str(output_path),
       update_xml=False,
       error_out=errors,
+      result_out=results,
     )
 
     if status == 'ok' and output_path.exists():
-      self.job_store.update_status(job_id, JobStatus.completed)
-      log.info('job %s completed', job_id)
+      info = results[0] if results else {}
+      self.job_store.update_status(
+        job_id,
+        JobStatus.completed,
+        result_message=info.get('message'),
+        unchanged=bool(info.get('bypassed')),
+      )
+      log.info('job %s completed (unchanged=%s)', job_id, info.get('bypassed', False))
       return
 
     if status == 'timeout':
