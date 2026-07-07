@@ -1,9 +1,8 @@
 from __future__ import annotations
 
-from datetime import datetime
-from zoneinfo import ZoneInfo
+from datetime import datetime, timedelta, timezone
 
-KST = ZoneInfo('Asia/Seoul')
+KST = timezone(timedelta(hours=9))
 
 
 def now_kst() -> datetime:
@@ -18,7 +17,7 @@ def parse_kst(value: str) -> datetime:
   dt = datetime.fromisoformat(value)
   if dt.tzinfo is None:
     # Legacy records were stored as UTC without a timezone suffix.
-    dt = dt.replace(tzinfo=ZoneInfo('UTC')).astimezone(KST)
+    dt = dt.replace(tzinfo=timezone.utc).astimezone(KST)
   else:
     dt = dt.astimezone(KST)
   return dt
