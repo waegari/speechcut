@@ -3,13 +3,14 @@ from __future__ import annotations
 import logging
 import queue
 import threading
-from datetime import datetime, timedelta
+from datetime import timedelta
 from pathlib import Path
 
 from eve.api.job_store import JobStore
 from eve.api.schemas import JobStatus
 from eve.app.manager import Supervisor
 from eve.config.settings import settings
+from eve.utils.timezone import now_kst
 
 log = logging.getLogger('eve.api.worker_bridge')
 
@@ -97,7 +98,7 @@ class WorkerBridge:
 
   def _cleanup_loop(self) -> None:
     while not self._stop.wait(3600):
-      cutoff = datetime.utcnow() - timedelta(hours=settings.JOB_RETENTION_HOURS)
+      cutoff = now_kst() - timedelta(hours=settings.JOB_RETENTION_HOURS)
       for job_id in self.job_store.list_expired(cutoff):
         log.info('deleting expired job %s', job_id)
         self.job_store.delete_job(job_id)

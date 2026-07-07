@@ -9,6 +9,7 @@ from typing import Any
 
 from eve.api.schemas import CutMode, JobStatus
 from eve.config.settings import settings
+from eve.utils.timezone import now_kst, now_kst_iso, parse_kst
 
 
 class JobStore:
@@ -51,10 +52,10 @@ class JobStore:
       conn.execute('ALTER TABLE jobs ADD COLUMN unchanged INTEGER NOT NULL DEFAULT 0')
 
   def _now(self) -> str:
-    return datetime.utcnow().isoformat()
+    return now_kst_iso()
 
   def _row_to_dict(self, row: sqlite3.Row) -> dict[str, Any]:
-    completed_at = datetime.fromisoformat(row['completed_at']) if row['completed_at'] else None
+    completed_at = parse_kst(row['completed_at']) if row['completed_at'] else None
     expires_at = None
     if completed_at and row['status'] in (JobStatus.completed.value, JobStatus.failed.value):
       expires_at = completed_at + timedelta(hours=settings.JOB_RETENTION_HOURS)
@@ -70,8 +71,8 @@ class JobStore:
       'unchanged': unchanged,
       'result_message': result_message,
       'error': row['error'],
-      'created_at': datetime.fromisoformat(row['created_at']),
-      'updated_at': datetime.fromisoformat(row['updated_at']),
+      'created_at': parse_kst(row['created_at']),
+      'updated_at': parse_kst(row['updated_at']),
       'completed_at': completed_at,
       'expires_at': expires_at,
     }
@@ -166,18 +167,21 @@ class JobStore:
     return [row['id'] for row in rows]
 
   def list_expired(self, cutoff: datetime) -> list[str]:
-    cutoff_iso = cutoff.isoformat()
     with self._connect() as conn:
       rows = conn.execute(
         '''
-        SELECT id FROM jobs
+        SELECT id, completed_at FROM jobs
         WHERE status IN (?, ?)
           AND completed_at IS NOT NULL
-          AND completed_at < ?
         ''',
-        (JobStatus.completed.value, JobStatus.failed.value, cutoff_iso),
+        (JobStatus.completed.value, JobStatus.failed.value),
       ).fetchall()
-    return [row['id'] for row in rows]
+    expired: list[str] = []
+    for row in rows:
+      completed_at = parse_kst(row['completed_at'])
+      if completed_at < cutoff:
+        expired.append(row['id'])
+    return expired
 
   def delete_job(self, job_id: str) -> None:
     with self._connect() as conn:
