@@ -106,17 +106,26 @@ powershell -ExecutionPolicy Bypass -File .\scripts\install.ps1
 powershell -ExecutionPolicy Bypass -File .\scripts\Setup-EVEDeploy.ps1
 ```
 
-Or manually (generate `ecosystem.config.js` with your install path first):
+Or manually:
 ```powershell
 # Replace C:/eve with your project root
 (Get-Content ecosystem.config.cjs -Raw) -replace '__EVE_ROOT__','C:/eve' |
-  Set-Content ecosystem.config.js -Encoding UTF8
+  Set-Content ecosystem.config.cjs -Encoding UTF8
+pm2 update
 pm2 delete eve-api
-pm2 start ecosystem.config.js
+pm2 delete ecosystem.config.cjs   # if PM2 registered the file itself by mistake
+pm2 start ecosystem.config.cjs
 pm2 save
+pm2 status   # name must be "eve-api", not "ecosystem.config..."
 ```
 
-> **Windows note:** PM2 runs `wscript.exe` → `scripts/start-eve-api-hidden.vbs` → `pythonw.exe` (no console window). Do **not** point PM2 at `python.exe` directly. For debugging only: `.venv\Scripts\python.exe -m uvicorn eve.api.main:app --host 127.0.0.1 --port 8001`
+> **Windows note:** PM2 runs `scripts/start-eve-api.cmd` → `pythonw.exe` (no console window). If `pm2 status` shows `ecosystem.config...` instead of `eve-api`, PM2 failed to parse the config — run `pm2 update`, delete the bad process, and retry. For debugging only: `.venv\Scripts\python.exe -m uvicorn eve.api.main:app --host 127.0.0.1 --port 8001`
+
+**PM2 keeps restarting?** Check in order:
+1. `pm2 update` (in-memory PM2 version mismatch causes odd behavior)
+2. `pm2 status` — process name must be `eve-api`, not `ecosystem.config.cjs`
+3. `pm2 logs eve-api --lines 50` and `logs\eve-api.log`
+4. Test launcher directly: `scripts\start-eve-api.cmd` (should stay running; Ctrl+C to stop)
 
 4. Configure nginx using [`deploy/nginx.conf`](deploy/nginx.conf) as a template (proxy to `127.0.0.1:8001`)
 
