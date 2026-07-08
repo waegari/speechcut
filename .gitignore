@@ -219,3 +219,5 @@ logs/
 
 # PM2: generated from ecosystem.config.cjs with machine-specific paths
 ecosystem.config.js
+
+data/jobs.db
