@@ -19,7 +19,7 @@ def main() -> None:
 
   model = tf.saved_model.load(str(MODEL_DIR))
   concrete_fn = model.__call__.get_concrete_function(
-    tf.TensorSpec([None], tf.float32, name='waveform')
+    tf.TensorSpec([None], tf.float32)
   )
 
   tf2onnx.convert.from_function(
