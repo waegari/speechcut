@@ -80,7 +80,7 @@ class WorkerProcess(Process):
             timings[name] = timings.get(name, 0.0) + elapsed_s
 
           _maybe_delay(audio_path)  # ← Test delay hook
-          report_progress('loading', 'Loading audio and models')
+          report_progress('loading', 'Preparing models')
           speechExtractor = SpeechExtractor(
             audio_path,
             vad_model=vad_model,

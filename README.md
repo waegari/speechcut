@@ -154,6 +154,14 @@ pm2 status   # name must be "eve-api", not "ecosystem.config..."
 |-------|-------------|
 | `status` | `queued`, `loading`, `detecting_speech`, `detecting_music`, `merging_segments`, `exporting`, `completed`, or `failed` |
 | `status_message` | Optional human-readable detail for the current `status` |
+
+Status meaning for early stages:
+
+| `status` | Typical meaning |
+|----------|-----------------|
+| `loading` | Model prep / audio read into memory |
+| `detecting_speech` | Silero VAD speech-segment detection |
+| `detecting_music` | YAMNet music classification on non-speech gaps (aggressive mode) |
 | `progress_current` | Number of processed segments during `detecting_music`; otherwise `null` |
 | `progress_total` | Total segments to classify during `detecting_music`; otherwise `null` |
 | `progress_percent` | Integer progress percent during `detecting_music`; otherwise `null` |

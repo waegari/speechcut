@@ -63,7 +63,7 @@ class WorkerBridge:
     self.job_store.update_status(
       job_id,
       JobStatus.loading,
-      status_message='Loading audio and models',
+      status_message='Preparing models',
     )
     input_path = Path(job['input_path'])
     output_path = Path(job['output_path'])

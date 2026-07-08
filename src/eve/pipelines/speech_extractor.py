@@ -80,7 +80,6 @@ class SpeechExtractor(AudioProcessor):
 
   def speech_music_separate(self, out_path=None) -> ProcessingOutcome:
     '''Aggressive mode: detect music segments, invert to keep speech-only parts.'''
-    self._report_progress('detecting_speech', 'Analyzing speech segments')
     timestamps, wav = self.get_vad_timestamps()
     inverse = self.invert_timestamps(timestamps, wav)
     if len(inverse) == 0:
@@ -110,7 +109,6 @@ class SpeechExtractor(AudioProcessor):
 
   def speech_voice_preserve(self, out_path=None) -> ProcessingOutcome:
     '''Conservative mode: keep VAD speech segments with fade in/out.'''
-    self._report_progress('detecting_speech', 'Analyzing speech segments')
     timestamps, wav = self.get_vad_timestamps()
     if len(timestamps) == 0:
       log.debug('no speech in the audio file')
@@ -142,7 +140,10 @@ class SpeechExtractor(AudioProcessor):
     '''
     audio_path = str(self.source_audio_path)
     v_model = self.vad_model
+    # Split long early stage for polling UX: load vs VAD (no new status values).
+    self._report_progress('loading', 'Loading audio')
     wav = self._measure('audio_read', v_model.read_audio, audio_path, sampling_rate=self.processing_sr)
+    self._report_progress('detecting_speech', 'Analyzing speech segments')
     speech_timestamps = self._measure(
       'vad_inference',
       v_model.get_speech_timestamps,
