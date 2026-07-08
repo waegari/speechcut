@@ -85,7 +85,7 @@ class SpeechExtractor(AudioProcessor):
     if len(inverse) == 0:
       log.info('no non-speech gaps; bypassing with unchanged output')
       return self._bypass_unchanged(out_path, NO_MUSIC_DETECTED_MESSAGE)
-    self._report_progress('detecting_music', 'Analyzing music segments', 0, len(inverse))
+    self._report_progress('detecting_music', 'Classifying segments', 0, len(inverse))
     music_seg = self._measure('music_classification', self.sound_classification, inverse, wav, 'Music')
     if not music_seg:
       log.info('no music segments detected; bypassing with unchanged output')
@@ -154,7 +154,7 @@ class SpeechExtractor(AudioProcessor):
     # Split long early stage for polling UX: load vs VAD (no new status values).
     self._report_progress('loading', 'Loading audio')
     wav = self._measure('audio_read', v_model.read_audio, audio_path, sampling_rate=self.processing_sr)
-    self._report_progress('detecting_speech', 'Analyzing speech segments')
+    self._report_progress('detecting_speech', 'Voice activity detecting')
     speech_timestamps = self._measure(
       'vad_inference',
       v_model.get_speech_timestamps,
@@ -197,7 +197,7 @@ class SpeechExtractor(AudioProcessor):
     end_of_last_kept_seg = 0
     total_segments = len(timestamps)
     progress_step = 'detecting_speech' if target_label == 'Speech' else 'detecting_music'
-    progress_label = 'Verifying speech segments' if target_label == 'Speech' else 'Analyzing music segments'
+    progress_label = 'Classifying segments'
 
     for idx, seg in enumerate(timestamps, start=1):
       audio_seg = self._to_numpy_audio(wav[seg['start']:seg['end']])
