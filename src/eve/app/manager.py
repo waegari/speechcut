@@ -60,7 +60,7 @@ class Supervisor:
     update_xml: bool = True,
     error_out: list | None = None,
     result_out: list | None = None,
-    progress_callback: Callable[[str, str | None], None] | None = None,
+    progress_callback: Callable[[str, str | None, int | None, int | None], None] | None = None,
   ) -> str:
     '''
     Return value: `'ok' | 'timeout' | 'error'`.
@@ -93,7 +93,12 @@ class Supervisor:
           if msg.get('id') != task_id:
             continue
           if progress_callback is not None:
-            progress_callback(msg.get('step', 'loading'), msg.get('message'))
+            progress_callback(
+              msg.get('step', 'loading'),
+              msg.get('message'),
+              msg.get('current'),
+              msg.get('total'),
+            )
           continue
 
         if mtype in ('done', 'error'):

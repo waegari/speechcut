@@ -32,16 +32,34 @@ class YamnetWrapper:
         import onnxruntime as ort
 
         self.session = ort.InferenceSession(str(onnx_path), providers=settings.ONNX_PROVIDERS)
-        input_meta = self.session.get_inputs()[0]
+        inputs = self.session.get_inputs()
+        input_names = [item.name for item in inputs]
+        if len(inputs) != 1:
+          raise RuntimeError(
+            'unexpected ONNX inputs (likely a broken conversion); '
+            f'expected 1 waveform input, got {len(inputs)}: {input_names[:8]}'
+          )
+        input_meta = inputs[0]
         self.input_name = input_meta.name
         self.input_rank = len(input_meta.shape)
         self.output_names = [item.name for item in self.session.get_outputs()]
+        # Reject graphs that still require frozen weight tensors at runtime.
+        sample = np.zeros(16000, dtype=np.float32)
+        self.session.run(
+          self.output_names or None,
+          {self.input_name: self._prepare_onnx_input(sample)},
+        )
         self.providers = list(self.session.get_providers())
         self.backend = 'onnxruntime'
         self.device = 'cuda' if 'CUDAExecutionProvider' in self.providers else 'cpu'
-        log.info('YAMNet backend=onnxruntime device=%s providers=%s', self.device, self.providers)
+        log.info('YAMNet backend=onnxruntime device=%s providers=%s input=%s', self.device, self.providers, self.input_name)
         return
       except Exception as exc:
+        self.session = None
+        self.input_name = None
+        self.input_rank = None
+        self.output_names = []
+        self.providers = []
         log.warning('YAMNet ONNX load failed, falling back to TensorFlow: %s', exc)
 
     import tensorflow as tf

@@ -32,6 +32,9 @@ class JobStatusResponse(BaseModel):
   job_id: str
   status: JobStatus
   status_message: str | None = None
+  progress_percent: int | None = None
+  progress_current: int | None = None
+  progress_total: int | None = None
   cut_mode: CutMode
   input_filename: str
   unchanged: bool = False

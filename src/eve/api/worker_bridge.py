@@ -70,11 +70,18 @@ class WorkerBridge:
     errors: list[str] = []
     results: list[dict] = []
 
-    def update_progress(step_name: str, message: str | None = None) -> None:
+    def update_progress(
+      step_name: str,
+      message: str | None = None,
+      current: int | None = None,
+      total: int | None = None,
+    ) -> None:
       self.job_store.update_status(
         job_id,
         JobStatus(step_name),
         status_message=message,
+        progress_current=current if step_name == JobStatus.detecting_music.value else None,
+        progress_total=total if step_name == JobStatus.detecting_music.value else None,
       )
 
     log.info('processing job %s (%s)', job_id, job['cut_mode'].value)
@@ -94,6 +101,8 @@ class WorkerBridge:
         job_id,
         JobStatus.completed,
         status_message=info.get('message'),
+        progress_current=None,
+        progress_total=None,
         result_message=info.get('message'),
         unchanged=bool(info.get('bypassed')),
       )
@@ -105,6 +114,8 @@ class WorkerBridge:
         job_id,
         JobStatus.failed,
         status_message='Processing timed out',
+        progress_current=None,
+        progress_total=None,
         error='processing timeout',
       )
       log.warning('job %s timed out', job_id)
@@ -115,6 +126,8 @@ class WorkerBridge:
       job_id,
       JobStatus.failed,
       status_message=error,
+      progress_current=None,
+      progress_total=None,
       error=error,
     )
     log.warning('job %s failed: %s', job_id, error)

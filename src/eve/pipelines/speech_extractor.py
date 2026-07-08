@@ -33,7 +33,7 @@ class SpeechExtractor(AudioProcessor):
     min_speech_s: int = settings.MIN_SPEECH_S,
     class_prob_threshold: float = settings.CLASS_PROB_THRESHOLD,
     music_sensitivity: int = settings.MUSIC_SENSITIVITY,
-    progress_callback: Callable[[str, str | None], None] | None = None,
+    progress_callback: Callable[[str, str | None, int | None, int | None], None] | None = None,
     timing_callback: Callable[[str, float], None] | None = None,
   ):
     super().__init__(path, sr, channels, output_sr, output_br, output_ch, max_bytes)
@@ -51,9 +51,15 @@ class SpeechExtractor(AudioProcessor):
     self.progress_callback = progress_callback
     self.timing_callback = timing_callback
 
-  def _report_progress(self, step: str, message: str | None = None) -> None:
+  def _report_progress(
+    self,
+    step: str,
+    message: str | None = None,
+    current: int | None = None,
+    total: int | None = None,
+  ) -> None:
     if self.progress_callback is not None:
-      self.progress_callback(step, message)
+      self.progress_callback(step, message, current, total)
 
   def _report_timing(self, name: str, elapsed_s: float) -> None:
     if self.timing_callback is not None:
@@ -80,7 +86,7 @@ class SpeechExtractor(AudioProcessor):
     if len(inverse) == 0:
       log.info('no non-speech gaps; bypassing with unchanged output')
       return self._bypass_unchanged(out_path, NO_MUSIC_DETECTED_MESSAGE)
-    self._report_progress('detecting_music', 'Analyzing music segments')
+    self._report_progress('detecting_music', 'Analyzing music segments', 0, len(inverse))
     music_seg = self._measure('music_classification', self.sound_classification, inverse, wav, 'Music')
     if not music_seg:
       log.info('no music segments detected; bypassing with unchanged output')
@@ -177,7 +183,8 @@ class SpeechExtractor(AudioProcessor):
 
     speech_seg = []
 
-    for seg in timestamps:
+    total_segments = len(timestamps)
+    for idx, seg in enumerate(timestamps, start=1):
       audio_seg = self._to_numpy_audio(wav[seg['start']:seg['end']])
       scores = c_model.predict(audio_seg)      
       avg_probs = scores.mean(axis=0)
@@ -214,6 +221,13 @@ class SpeechExtractor(AudioProcessor):
           end_of_last_speech_seg = seg['end']
         elif (end_of_last_speech_seg and (seg['start'] - end_of_last_speech_seg) < self.merge_gap_s * self.processing_sr):
           speech_seg.append(seg)
+
+      self._report_progress(
+        'detecting_music',
+        f'Analyzing music segments ({idx}/{total_segments})',
+        idx,
+        total_segments,
+      )
 
     if not speech_seg:
       log.warning(f'no {target_label}. adjust class_prob_threshold.')

@@ -154,12 +154,15 @@ pm2 status   # name must be "eve-api", not "ecosystem.config..."
 |-------|-------------|
 | `status` | `queued`, `loading`, `detecting_speech`, `detecting_music`, `merging_segments`, `exporting`, `completed`, or `failed` |
 | `status_message` | Optional human-readable detail for the current `status` |
+| `progress_current` | Number of processed segments during `detecting_music`; otherwise `null` |
+| `progress_total` | Total segments to classify during `detecting_music`; otherwise `null` |
+| `progress_percent` | Integer progress percent during `detecting_music`; otherwise `null` |
 | `unchanged` | `true` when aggressive mode found no music to cut (output equals input) |
 | `result_message` | e.g. `오디오 파일에서 음악 구간이 검출되지 않습니다` when `unchanged` is true |
 | `expires_at` | Download deadline (`completed_at` + `JOB_RETENTION_HOURS`, default 6 hours) |
 | `error` | Set only when `status` is `failed` |
 
-This project intentionally uses stage-based progress instead of `%` progress because the relative cost of VAD, classification, and export varies widely by audio content.
+This project intentionally uses stage-based progress by default. A numeric `%` is exposed only during `detecting_music`, where the total number of segments is known in advance.
 
 ### Inference backend settings
 

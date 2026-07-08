@@ -59,12 +59,19 @@ class WorkerProcess(Process):
         update_xml = msg.get('update_xml', True)
 
         try:
-          def report_progress(step: str, message: str | None = None):
+          def report_progress(
+            step: str,
+            message: str | None = None,
+            current: int | None = None,
+            total: int | None = None,
+          ):
             self.result_queue.put({
               'type': 'progress',
               'id': task_id,
               'step': step,
               'message': message,
+              'current': current,
+              'total': total,
             })
 
           timings: dict[str, float] = {}

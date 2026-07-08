@@ -56,6 +56,10 @@ class JobStore:
       conn.execute('ALTER TABLE jobs ADD COLUMN result_message TEXT')
     if 'unchanged' not in cols:
       conn.execute('ALTER TABLE jobs ADD COLUMN unchanged INTEGER NOT NULL DEFAULT 0')
+    if 'progress_current' not in cols:
+      conn.execute('ALTER TABLE jobs ADD COLUMN progress_current INTEGER')
+    if 'progress_total' not in cols:
+      conn.execute('ALTER TABLE jobs ADD COLUMN progress_total INTEGER')
 
   def _now(self) -> str:
     return now_kst_iso()
@@ -72,6 +76,9 @@ class JobStore:
       'job_id': row['id'],
       'status': status,
       'status_message': row['step_message'] if 'step_message' in row.keys() else None,
+      'progress_current': row['progress_current'] if 'progress_current' in row.keys() else None,
+      'progress_total': row['progress_total'] if 'progress_total' in row.keys() else None,
+      'progress_percent': self._progress_percent(row),
       'cut_mode': CutMode(row['cut_mode']),
       'input_filename': row['input_filename'],
       'input_path': row['input_path'],
@@ -84,6 +91,15 @@ class JobStore:
       'completed_at': completed_at,
       'expires_at': expires_at,
     }
+
+  def _progress_percent(self, row: sqlite3.Row) -> int | None:
+    if 'progress_current' not in row.keys() or 'progress_total' not in row.keys():
+      return None
+    current = row['progress_current']
+    total = row['progress_total']
+    if current is None or total is None or total <= 0:
+      return None
+    return min(100, max(0, int(current * 100 / total)))
 
   def _normalize_status(self, status_value: str, step_value: str | None = None) -> JobStatus:
     if status_value == 'processing':
@@ -136,6 +152,8 @@ class JobStore:
     status: JobStatus,
     *,
     status_message: str | None = None,
+    progress_current: int | None = None,
+    progress_total: int | None = None,
     error: str | None = None,
     result_message: str | None = None,
     unchanged: bool = False,
@@ -146,7 +164,8 @@ class JobStore:
       conn.execute(
         '''
         UPDATE jobs
-        SET status = ?, step = ?, step_message = ?, error = ?, result_message = ?, unchanged = ?,
+        SET status = ?, step = ?, step_message = ?, progress_current = ?, progress_total = ?,
+            error = ?, result_message = ?, unchanged = ?,
             updated_at = ?, completed_at = COALESCE(?, completed_at)
         WHERE id = ?
         ''',
@@ -154,6 +173,8 @@ class JobStore:
           status.value,
           status.value,
           status_message,
+          progress_current,
+          progress_total,
           error,
           result_message,
           int(unchanged),
@@ -186,7 +207,8 @@ class JobStore:
         conn.execute(
           f'''
           UPDATE jobs
-          SET status = ?, step = ?, step_message = NULL, error = NULL, result_message = NULL, unchanged = 0,
+          SET status = ?, step = ?, step_message = NULL, progress_current = NULL, progress_total = NULL,
+              error = NULL, result_message = NULL, unchanged = 0,
               updated_at = ?, completed_at = NULL
           WHERE status IN ({where_placeholders})
           ''',
