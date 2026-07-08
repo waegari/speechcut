@@ -144,7 +144,7 @@ pm2 status   # name must be "eve-api", not "ecosystem.config..."
 ### Cut modes (`cut_mode` form field)
 
 * `aggressive` — Detect music segments with YAMNet, invert to remove music (heavy cut)
-* `conservative` — Keep VAD speech segments only, connect with fade in/out (light cut)
+* `conservative` — VAD candidates → keep YAMNet `Speech` segments → fade in/out connect (pre-refactor speech extract)
 
 ### Job status fields
 
@@ -160,17 +160,20 @@ Status meaning for early stages:
 | `status` | Typical meaning |
 |----------|-----------------|
 | `loading` | Model prep / audio read into memory |
-| `detecting_speech` | Silero VAD speech-segment detection |
-| `detecting_music` | YAMNet music classification on non-speech gaps (aggressive mode) |
-| `progress_current` | Number of processed segments during `detecting_music`; otherwise `null` |
-| `progress_total` | Total segments to classify during `detecting_music`; otherwise `null` |
-| `progress_percent` | Integer progress percent during `detecting_music`; otherwise `null` |
+| `detecting_speech` | Silero VAD; then in conservative mode, YAMNet Speech verification (with `%`) |
+| `detecting_music` | YAMNet music classification on non-speech gaps (aggressive mode, with `%`) |
+
+| Field | Description |
+|-------|-------------|
+| `progress_current` | Processed segment count during YAMNet loops; otherwise `null` |
+| `progress_total` | Total segments to classify during YAMNet loops; otherwise `null` |
+| `progress_percent` | Integer progress percent during YAMNet loops; otherwise `null` |
 | `unchanged` | `true` when aggressive mode found no music to cut (output equals input) |
 | `result_message` | e.g. `오디오 파일에서 음악 구간이 검출되지 않습니다` when `unchanged` is true |
 | `expires_at` | Download deadline (`completed_at` + `JOB_RETENTION_HOURS`, default 6 hours) |
 | `error` | Set only when `status` is `failed` |
 
-This project intentionally uses stage-based progress by default. A numeric `%` is exposed only during `detecting_music`, where the total number of segments is known in advance.
+Stage-based progress is the default. A numeric `%` is exposed during YAMNet classification loops (`detecting_music` for aggressive, Speech verification under `detecting_speech` for conservative), where the segment total is known.
 
 ### Inference backend settings
 

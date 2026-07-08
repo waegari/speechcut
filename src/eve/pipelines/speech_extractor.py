@@ -108,13 +108,24 @@ class SpeechExtractor(AudioProcessor):
     return ProcessingOutcome(ok=True)
 
   def speech_voice_preserve(self, out_path=None) -> ProcessingOutcome:
-    '''Conservative mode: keep VAD speech segments with fade in/out.'''
+    '''Conservative mode: VAD candidates → keep YAMNet Speech → fade connect.'''
     timestamps, wav = self.get_vad_timestamps()
     if len(timestamps) == 0:
       log.debug('no speech in the audio file')
       return ProcessingOutcome(ok=False, message='no speech segments found in the audio file')
+    self._report_progress('detecting_speech', 'Verifying speech segments', 0, len(timestamps))
+    speech_seg = self._measure(
+      'speech_classification',
+      self.sound_classification,
+      timestamps,
+      wav,
+      'Speech',
+    )
+    if not speech_seg:
+      log.debug('no speech confirmed by classifier')
+      return ProcessingOutcome(ok=False, message='no speech segments confirmed by classifier')
     self._report_progress('merging_segments', 'Preparing output segments')
-    merged = self._measure('merge_segments', self.merge_segments, timestamps)
+    merged = self._measure('merge_segments', self.merge_segments, speech_seg)
     if len(merged) == 0:
       log.debug('no speech segments long enough to export')
       return ProcessingOutcome(ok=False, message='no speech segments long enough to export')
@@ -182,12 +193,15 @@ class SpeechExtractor(AudioProcessor):
     c_model = self.classification_model
     class_names = c_model.class_names
 
-    speech_seg = []
-
+    kept_seg = []
+    end_of_last_kept_seg = 0
     total_segments = len(timestamps)
+    progress_step = 'detecting_speech' if target_label == 'Speech' else 'detecting_music'
+    progress_label = 'Verifying speech segments' if target_label == 'Speech' else 'Analyzing music segments'
+
     for idx, seg in enumerate(timestamps, start=1):
       audio_seg = self._to_numpy_audio(wav[seg['start']:seg['end']])
-      scores = c_model.predict(audio_seg)      
+      scores = c_model.predict(audio_seg)
       avg_probs = scores.mean(axis=0)
 
       # top4 indices
@@ -195,7 +209,6 @@ class SpeechExtractor(AudioProcessor):
       top_labels = [class_names[i] for i in top5_idx]
       top_probs = [float(avg_probs[i]) for i in top5_idx]
       music_prob = float(avg_probs[class_names.index('Music')])
-      speech_prob = float(avg_probs[class_names.index('Speech')])
 
       log.debug(
         f'{seg["start"]/16000:8.2f}s-{seg["end"]/16000:8.2f}s  →  '
@@ -206,34 +219,35 @@ class SpeechExtractor(AudioProcessor):
         f'Music_prob {music_prob:.3f}'
       )
 
-      # top_idx = int(avg_probs.argmax())
-      # top_label = class_names[top_idx]
-      # top_prob = float(avg_probs[top_idx])
+      # Pre-refactor Speech path: down-weight Speech when Music also ranks high.
+      if target_label == 'Speech' and top_labels[0] == 'Speech' and 'Music' in top_labels:
+        top_probs[0] = max(top_probs[0] - music_prob * self.music_sensitivity, 0)
 
       top_label, top_prob = top_labels[0], top_probs[0]
 
       log.debug(f'{seg["start"]/16000:8.2f}s-{seg["end"]/16000:8.2f}s  →  {top_label:<20} {top_prob:.3f}')
 
-      end_of_last_speech_seg = 0 # end of last speech segment where prob > thershold
-
       if top_label == target_label:
         if top_prob > self.class_prob_threshold:
-          speech_seg.append(seg)
-          end_of_last_speech_seg = seg['end']
-        elif (end_of_last_speech_seg and (seg['start'] - end_of_last_speech_seg) < self.merge_gap_s * self.processing_sr):
-          speech_seg.append(seg)
+          kept_seg.append(seg)
+          end_of_last_kept_seg = seg['end']
+        elif (
+          end_of_last_kept_seg
+          and (seg['start'] - end_of_last_kept_seg) < self.merge_gap_s * self.processing_sr
+        ):
+          kept_seg.append(seg)
 
       self._report_progress(
-        'detecting_music',
-        f'Analyzing music segments ({idx}/{total_segments})',
+        progress_step,
+        f'{progress_label} ({idx}/{total_segments})',
         idx,
         total_segments,
       )
 
-    if not speech_seg:
+    if not kept_seg:
       log.warning(f'no {target_label}. adjust class_prob_threshold.')
 
-    return speech_seg
+    return kept_seg
 
   def merge_segments(self, speech_seg):
     if not speech_seg:

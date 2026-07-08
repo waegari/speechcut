@@ -80,8 +80,8 @@ class WorkerBridge:
         job_id,
         JobStatus(step_name),
         status_message=message,
-        progress_current=current if step_name == JobStatus.detecting_music.value else None,
-        progress_total=total if step_name == JobStatus.detecting_music.value else None,
+        progress_current=current,
+        progress_total=total,
       )
 
     log.info('processing job %s (%s)', job_id, job['cut_mode'].value)
