@@ -60,11 +60,22 @@ class WorkerBridge:
     if job is None or job['status'] != JobStatus.queued:
       return
 
-    self.job_store.update_status(job_id, JobStatus.processing)
+    self.job_store.update_status(
+      job_id,
+      JobStatus.loading,
+      status_message='Loading audio and models',
+    )
     input_path = Path(job['input_path'])
     output_path = Path(job['output_path'])
     errors: list[str] = []
     results: list[dict] = []
+
+    def update_progress(step_name: str, message: str | None = None) -> None:
+      self.job_store.update_status(
+        job_id,
+        JobStatus(step_name),
+        status_message=message,
+      )
 
     log.info('processing job %s (%s)', job_id, job['cut_mode'].value)
     status = self._supervisor.process(
@@ -74,6 +85,7 @@ class WorkerBridge:
       update_xml=False,
       error_out=errors,
       result_out=results,
+      progress_callback=update_progress,
     )
 
     if status == 'ok' and output_path.exists():
@@ -81,6 +93,7 @@ class WorkerBridge:
       self.job_store.update_status(
         job_id,
         JobStatus.completed,
+        status_message=info.get('message'),
         result_message=info.get('message'),
         unchanged=bool(info.get('bypassed')),
       )
@@ -88,12 +101,22 @@ class WorkerBridge:
       return
 
     if status == 'timeout':
-      self.job_store.update_status(job_id, JobStatus.failed, error='processing timeout')
+      self.job_store.update_status(
+        job_id,
+        JobStatus.failed,
+        status_message='Processing timed out',
+        error='processing timeout',
+      )
       log.warning('job %s timed out', job_id)
       return
 
     error = errors[0] if errors else 'processing failed'
-    self.job_store.update_status(job_id, JobStatus.failed, error=error)
+    self.job_store.update_status(
+      job_id,
+      JobStatus.failed,
+      status_message=error,
+      error=error,
+    )
     log.warning('job %s failed: %s', job_id, error)
 
   def _cleanup_loop(self) -> None:

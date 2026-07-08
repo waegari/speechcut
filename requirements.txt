@@ -9,9 +9,10 @@ soundfile
 silero_vad
 torch<2.9
 torchaudio<2.9
+# transitional fallback until a local YAMNet ONNX file is provided
 tensorflow-cpu
 numpy
-onnxruntime
+onnxruntime-gpu
 
 # env
 python-dotenv

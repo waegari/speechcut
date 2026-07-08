@@ -1,6 +1,7 @@
 import logging
 import queue
 import multiprocessing as mp
+from typing import Callable
 from eve.app.worker import WorkerProcess
 
 log = logging.getLogger('eve.manager')
@@ -59,6 +60,7 @@ class Supervisor:
     update_xml: bool = True,
     error_out: list | None = None,
     result_out: list | None = None,
+    progress_callback: Callable[[str, str | None], None] | None = None,
   ) -> str:
     '''
     Return value: `'ok' | 'timeout' | 'error'`.
@@ -87,6 +89,13 @@ class Supervisor:
           self._kill_worker()
           return 'error'
 
+        if mtype == 'progress':
+          if msg.get('id') != task_id:
+            continue
+          if progress_callback is not None:
+            progress_callback(msg.get('step', 'loading'), msg.get('message'))
+          continue
+
         if mtype in ('done', 'error'):
           if msg.get('id') != task_id:
             continue
@@ -95,6 +104,7 @@ class Supervisor:
               result_out.append({
                 'bypassed': bool(msg.get('bypassed')),
                 'message': msg.get('message'),
+                'timings': msg.get('timings', {}),
               })
             return 'ok'
           else:

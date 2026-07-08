@@ -1,7 +1,8 @@
-import subprocess, logging, shutil
+import subprocess, logging, shutil, time
 from pathlib import Path
-from typing import Union
+from typing import Callable, Union
 import numpy as np
+import torch
 
 from eve.audio.processor import AudioProcessor
 from eve.config.settings import settings
@@ -32,6 +33,8 @@ class SpeechExtractor(AudioProcessor):
     min_speech_s: int = settings.MIN_SPEECH_S,
     class_prob_threshold: float = settings.CLASS_PROB_THRESHOLD,
     music_sensitivity: int = settings.MUSIC_SENSITIVITY,
+    progress_callback: Callable[[str, str | None], None] | None = None,
+    timing_callback: Callable[[str, float], None] | None = None,
   ):
     super().__init__(path, sr, channels, output_sr, output_br, output_ch, max_bytes)
 
@@ -45,19 +48,45 @@ class SpeechExtractor(AudioProcessor):
 
     self.vad_model = vad_model
     self.classification_model = classification_model
+    self.progress_callback = progress_callback
+    self.timing_callback = timing_callback
+
+  def _report_progress(self, step: str, message: str | None = None) -> None:
+    if self.progress_callback is not None:
+      self.progress_callback(step, message)
+
+  def _report_timing(self, name: str, elapsed_s: float) -> None:
+    if self.timing_callback is not None:
+      self.timing_callback(name, elapsed_s)
+    if settings.ENABLE_TIMING_LOGS:
+      log.info('timing %s=%.3fs', name, elapsed_s)
+
+  def _measure(self, name: str, fn: Callable, *args, **kwargs):
+    started = time.perf_counter()
+    result = fn(*args, **kwargs)
+    self._report_timing(name, time.perf_counter() - started)
+    return result
+
+  def _to_numpy_audio(self, audio_seg) -> np.ndarray:
+    if isinstance(audio_seg, torch.Tensor):
+      return audio_seg.detach().cpu().squeeze().numpy()
+    return np.asarray(audio_seg, dtype=np.float32).squeeze()
 
   def speech_music_separate(self, out_path=None) -> ProcessingOutcome:
     '''Aggressive mode: detect music segments, invert to keep speech-only parts.'''
+    self._report_progress('detecting_speech', 'Analyzing speech segments')
     timestamps, wav = self.get_vad_timestamps()
     inverse = self.invert_timestamps(timestamps, wav)
     if len(inverse) == 0:
       log.info('no non-speech gaps; bypassing with unchanged output')
       return self._bypass_unchanged(out_path, NO_MUSIC_DETECTED_MESSAGE)
-    music_seg = self.sound_classification(inverse, wav, 'Music')
+    self._report_progress('detecting_music', 'Analyzing music segments')
+    music_seg = self._measure('music_classification', self.sound_classification, inverse, wav, 'Music')
     if not music_seg:
       log.info('no music segments detected; bypassing with unchanged output')
       return self._bypass_unchanged(out_path, NO_MUSIC_DETECTED_MESSAGE)
-    merged = self.merge_segments(music_seg)
+    self._report_progress('merging_segments', 'Preparing output segments')
+    merged = self._measure('merge_segments', self.merge_segments, music_seg)
     if not merged:
       log.info('no music segments long enough after merge; bypassing with unchanged output')
       return self._bypass_unchanged(out_path, NO_MUSIC_DETECTED_MESSAGE)
@@ -68,25 +97,29 @@ class SpeechExtractor(AudioProcessor):
     if self.get_duration(inversed_merged) < 10:
       log.debug('speech only audio is too short to export')
       return ProcessingOutcome(ok=False, message='speech-only audio is too short to export')
-    margin_added = self.add_margins(inversed_merged, wav)
-    self.ffmpeg_concat_fade(margin_added, out_path=out_path)
+    margin_added = self._measure('add_margins', self.add_margins, inversed_merged, wav)
+    self._report_progress('exporting', 'Exporting processed audio')
+    self._measure('ffmpeg_export', self.ffmpeg_concat_fade, margin_added, out_path=out_path)
     return ProcessingOutcome(ok=True)
 
   def speech_voice_preserve(self, out_path=None) -> ProcessingOutcome:
     '''Conservative mode: keep VAD speech segments with fade in/out.'''
+    self._report_progress('detecting_speech', 'Analyzing speech segments')
     timestamps, wav = self.get_vad_timestamps()
     if len(timestamps) == 0:
       log.debug('no speech in the audio file')
       return ProcessingOutcome(ok=False, message='no speech segments found in the audio file')
-    merged = self.merge_segments(timestamps)
+    self._report_progress('merging_segments', 'Preparing output segments')
+    merged = self._measure('merge_segments', self.merge_segments, timestamps)
     if len(merged) == 0:
       log.debug('no speech segments long enough to export')
       return ProcessingOutcome(ok=False, message='no speech segments long enough to export')
     if self.get_duration(merged) < 10:
       log.debug('speech only audio is too short to export')
       return ProcessingOutcome(ok=False, message='speech-only audio is too short to export')
-    margin_added = self.add_margins(merged, wav)
-    self.ffmpeg_concat_fade(margin_added, out_path=out_path)
+    margin_added = self._measure('add_margins', self.add_margins, merged, wav)
+    self._report_progress('exporting', 'Exporting processed audio')
+    self._measure('ffmpeg_export', self.ffmpeg_concat_fade, margin_added, out_path=out_path)
     return ProcessingOutcome(ok=True)
 
   def _bypass_unchanged(self, out_path, message: str) -> ProcessingOutcome:
@@ -103,8 +136,10 @@ class SpeechExtractor(AudioProcessor):
     '''
     audio_path = str(self.source_audio_path)
     v_model = self.vad_model
-    wav = v_model.read_audio(audio_path, sampling_rate=self.processing_sr)
-    speech_timestamps = v_model.get_speech_timestamps(
+    wav = self._measure('audio_read', v_model.read_audio, audio_path, sampling_rate=self.processing_sr)
+    speech_timestamps = self._measure(
+      'vad_inference',
+      v_model.get_speech_timestamps,
       wav,
       sampling_rate=self.processing_sr,
     )
@@ -143,7 +178,7 @@ class SpeechExtractor(AudioProcessor):
     speech_seg = []
 
     for seg in timestamps:
-      audio_seg = wav[seg['start']:seg['end']].squeeze().numpy()
+      audio_seg = self._to_numpy_audio(wav[seg['start']:seg['end']])
       scores = c_model.predict(audio_seg)      
       avg_probs = scores.mean(axis=0)
 

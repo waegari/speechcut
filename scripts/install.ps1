@@ -82,6 +82,8 @@ if (-not (Test-Path $regFile)) {
 Write-Host "Installing requirements from wheelhouse (offline) ..."
 & $pip install --no-index --find-links "$Wheelhouse" -r "$regFile"
 
+Write-Host "Note: GPU deployment requires CUDA-compatible wheels in wheelhouse (e.g. onnxruntime-gpu)." 
+
 Write-Host "Installling project in editable mode (offline) ..."
 & $pip install --no-index --find-links "$Wheelhouse" -e "$Root"
 

@@ -31,6 +31,18 @@ def _norm_env_path(name: str, default_rel: str | Path, base: Path = _ROOT_DIR) -
 def _bin_default(exe: str) -> str:
   return f'bin/{exe}.exe' if os.name == 'nt' else f'bin/{exe}'
 
+
+def _read_csv_env(name: str, default: str) -> list[str]:
+  raw = (os.getenv(name) or default).strip()
+  return [part.strip() for part in raw.split(',') if part.strip()]
+
+
+def _read_bool_env(name: str, default: bool) -> bool:
+  raw = os.getenv(name)
+  if raw is None:
+    return default
+  return raw.strip().lower() in {'1', 'true', 'yes', 'on'}
+
 def _read_input_dirs_from_env(
     name: str = 'INPUT_DIR',
     default_rel: str | Path = 'input',
@@ -118,6 +130,17 @@ class Settings:
   JOB_TIMEOUT_SECONDS = int(os.getenv('JOB_TIMEOUT_SECONDS', 600))
   JOB_RETENTION_HOURS = int(os.getenv('JOB_RETENTION_HOURS', 6))
   MAX_UPLOAD_BYTES = int(os.getenv('MAX_UPLOAD_BYTES', MAX_AUDIO_BYTES))
+
+  # Inference backend
+  INFERENCE_BACKEND = os.getenv('INFERENCE_BACKEND', 'auto').strip().lower()
+  INFERENCE_DEVICE = os.getenv('INFERENCE_DEVICE', 'auto').strip().lower()
+  ONNX_PROVIDERS = _read_csv_env('ONNX_PROVIDERS', 'CUDAExecutionProvider,CPUExecutionProvider')
+  YAMNET_ONNX_PATH: Path = _norm_env_path(
+    'YAMNET_ONNX_PATH',
+    'src/eve/ml/classifier/models/yamnet.onnx',
+    ROOT_DIR,
+  )
+  ENABLE_TIMING_LOGS = _read_bool_env('ENABLE_TIMING_LOGS', True)
 
 
 settings = Settings()

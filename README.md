@@ -25,6 +25,7 @@ Designed to support compliance with replay service policies and mitigate copyrig
 
 * **[YAMNet](https://github.com/tensorflow/models/tree/master/research/audioset/yamnet)** (by Google): audio classification model for detecting music vs. speech
 * **[Silero-VAD](https://github.com/snakers4/silero-vad?tab=readme-ov-file)**: fast and lightweight voice activity detection model
+* **ONNX Runtime GPU**: preferred inference runtime for NVIDIA deployments when ONNX assets are available
 
 ---
 
@@ -70,6 +71,8 @@ python -m pip download -r requirements.txt -d vendor\wheelhouse
 Remove-Item .venv -Recurse -Force -ErrorAction SilentlyContinue
 powershell -ExecutionPolicy Bypass -File .\scripts\install.ps1
 ```
+
+For NVIDIA GPU deployments, prepare a wheelhouse that includes `onnxruntime-gpu` and a compatible CUDA runtime. The app falls back to CPU if GPU providers or ONNX assets are unavailable.
 
 ### Run API server (development)
 
@@ -149,11 +152,37 @@ pm2 status   # name must be "eve-api", not "ecosystem.config..."
 
 | Field | Description |
 |-------|-------------|
-| `status` | `queued`, `processing`, `completed`, or `failed` |
+| `status` | `queued`, `loading`, `detecting_speech`, `detecting_music`, `merging_segments`, `exporting`, `completed`, or `failed` |
+| `status_message` | Optional human-readable detail for the current `status` |
 | `unchanged` | `true` when aggressive mode found no music to cut (output equals input) |
 | `result_message` | e.g. `오디오 파일에서 음악 구간이 검출되지 않습니다` when `unchanged` is true |
 | `expires_at` | Download deadline (`completed_at` + `JOB_RETENTION_HOURS`, default 6 hours) |
 | `error` | Set only when `status` is `failed` |
+
+This project intentionally uses stage-based progress instead of `%` progress because the relative cost of VAD, classification, and export varies widely by audio content.
+
+### Inference backend settings
+
+The worker supports an ONNX-first configuration with explicit CPU fallback:
+
+| Variable | Description |
+|----------|-------------|
+| `INFERENCE_BACKEND` | `auto`, `onnx`, or `tensorflow` |
+| `INFERENCE_DEVICE` | `auto`, `cuda`, or `cpu` |
+| `ONNX_PROVIDERS` | Ordered providers, e.g. `CUDAExecutionProvider,CPUExecutionProvider` |
+| `YAMNET_ONNX_PATH` | Local ONNX path for YAMNet conversion output |
+| `ENABLE_TIMING_LOGS` | Enables per-stage timing logs |
+
+Current behavior:
+- Silero VAD uses the PyTorch backend and prefers CUDA when available.
+- YAMNet prefers a local ONNX model via ONNX Runtime; if the ONNX file is absent or fails to load, it falls back to the bundled TensorFlow SavedModel.
+- Worker startup logs show the selected backend/device so PM2 logs can be used to confirm GPU usage.
+
+To generate a local YAMNet ONNX model from the bundled SavedModel, a typical conversion command is:
+
+```powershell
+python -m tf2onnx.convert --saved-model .\src\eve\ml\classifier\models\yamnet_saved --output .\src\eve\ml\classifier\models\yamnet.onnx --opset 14
+```
 
 Completed/failed jobs and their files under `data/jobs/` are deleted automatically after `JOB_RETENTION_HOURS` (default **6 hours**).
 

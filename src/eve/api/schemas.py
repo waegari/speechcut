@@ -13,7 +13,11 @@ class CutMode(str, Enum):
 
 class JobStatus(str, Enum):
   queued = 'queued'
-  processing = 'processing'
+  loading = 'loading'
+  detecting_speech = 'detecting_speech'
+  detecting_music = 'detecting_music'
+  merging_segments = 'merging_segments'
+  exporting = 'exporting'
   completed = 'completed'
   failed = 'failed'
 
@@ -27,6 +31,7 @@ class JobCreateResponse(BaseModel):
 class JobStatusResponse(BaseModel):
   job_id: str
   status: JobStatus
+  status_message: str | None = None
   cut_mode: CutMode
   input_filename: str
   unchanged: bool = False

@@ -31,6 +31,8 @@ class JobStore:
         CREATE TABLE IF NOT EXISTS jobs (
           id TEXT PRIMARY KEY,
           status TEXT NOT NULL,
+          step TEXT NOT NULL,
+          step_message TEXT,
           cut_mode TEXT NOT NULL,
           input_filename TEXT NOT NULL,
           input_path TEXT NOT NULL,
@@ -46,6 +48,10 @@ class JobStore:
 
   def _migrate(self, conn: sqlite3.Connection) -> None:
     cols = {row[1] for row in conn.execute('PRAGMA table_info(jobs)').fetchall()}
+    if 'step' not in cols:
+      conn.execute("ALTER TABLE jobs ADD COLUMN step TEXT NOT NULL DEFAULT 'queued'")
+    if 'step_message' not in cols:
+      conn.execute('ALTER TABLE jobs ADD COLUMN step_message TEXT')
     if 'result_message' not in cols:
       conn.execute('ALTER TABLE jobs ADD COLUMN result_message TEXT')
     if 'unchanged' not in cols:
@@ -61,9 +67,11 @@ class JobStore:
       expires_at = completed_at + timedelta(hours=settings.JOB_RETENTION_HOURS)
     unchanged = bool(row['unchanged']) if 'unchanged' in row.keys() else False
     result_message = row['result_message'] if 'result_message' in row.keys() else None
+    status = self._normalize_status(row['status'], row['step'] if 'step' in row.keys() else None)
     return {
       'job_id': row['id'],
-      'status': JobStatus(row['status']),
+      'status': status,
+      'status_message': row['step_message'] if 'step_message' in row.keys() else None,
       'cut_mode': CutMode(row['cut_mode']),
       'input_filename': row['input_filename'],
       'input_path': row['input_path'],
@@ -77,6 +85,13 @@ class JobStore:
       'expires_at': expires_at,
     }
 
+  def _normalize_status(self, status_value: str, step_value: str | None = None) -> JobStatus:
+    if status_value == 'processing':
+      if step_value in {status.value for status in JobStatus}:
+        return JobStatus(step_value)
+      return JobStatus.loading
+    return JobStatus(status_value)
+
   def create_job(self, cut_mode: CutMode, input_filename: str) -> tuple[str, Path, Path]:
     job_id = str(uuid.uuid4())
     job_dir = self.data_dir / job_id
@@ -89,12 +104,13 @@ class JobStore:
       conn.execute(
         '''
         INSERT INTO jobs (
-          id, status, cut_mode, input_filename, input_path, output_path,
+          id, status, step, step_message, cut_mode, input_filename, input_path, output_path,
           error, created_at, updated_at, completed_at
-        ) VALUES (?, ?, ?, ?, ?, ?, NULL, ?, ?, NULL)
+        ) VALUES (?, ?, ?, NULL, ?, ?, ?, ?, NULL, ?, ?, NULL)
         ''',
         (
           job_id,
+          JobStatus.queued.value,
           JobStatus.queued.value,
           cut_mode.value,
           input_filename,
@@ -119,6 +135,7 @@ class JobStore:
     job_id: str,
     status: JobStatus,
     *,
+    status_message: str | None = None,
     error: str | None = None,
     result_message: str | None = None,
     unchanged: bool = False,
@@ -129,31 +146,51 @@ class JobStore:
       conn.execute(
         '''
         UPDATE jobs
-        SET status = ?, error = ?, result_message = ?, unchanged = ?,
+        SET status = ?, step = ?, step_message = ?, error = ?, result_message = ?, unchanged = ?,
             updated_at = ?, completed_at = COALESCE(?, completed_at)
         WHERE id = ?
         ''',
-        (status.value, error, result_message, int(unchanged), now, completed_at, job_id),
+        (
+          status.value,
+          status.value,
+          status_message,
+          error,
+          result_message,
+          int(unchanged),
+          now,
+          completed_at,
+          job_id,
+        ),
       )
       conn.commit()
 
   def reset_processing_to_queued(self) -> list[str]:
+    active_statuses = (
+      'processing',
+      JobStatus.loading.value,
+      JobStatus.detecting_speech.value,
+      JobStatus.detecting_music.value,
+      JobStatus.merging_segments.value,
+      JobStatus.exporting.value,
+    )
     with self._connect() as conn:
+      placeholders = ', '.join('?' for _ in active_statuses)
       rows = conn.execute(
-        "SELECT id FROM jobs WHERE status = ?",
-        (JobStatus.processing.value,),
+        f"SELECT id FROM jobs WHERE status IN ({placeholders})",
+        active_statuses,
       ).fetchall()
       job_ids = [row['id'] for row in rows]
       if job_ids:
         now = self._now()
+        where_placeholders = ', '.join('?' for _ in active_statuses)
         conn.execute(
-          '''
+          f'''
           UPDATE jobs
-          SET status = ?, error = NULL, result_message = NULL, unchanged = 0,
+          SET status = ?, step = ?, step_message = NULL, error = NULL, result_message = NULL, unchanged = 0,
               updated_at = ?, completed_at = NULL
-          WHERE status = ?
+          WHERE status IN ({where_placeholders})
           ''',
-          (JobStatus.queued.value, now, JobStatus.processing.value),
+          (JobStatus.queued.value, JobStatus.queued.value, now, *active_statuses),
         )
         conn.commit()
     return job_ids

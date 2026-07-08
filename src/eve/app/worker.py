@@ -33,6 +33,8 @@ class WorkerProcess(Process):
       log.info(f'[worker] starting, pid={os.getpid()}')
       vad_model = SileroVADWrapper()
       cls_model = YamnetWrapper()
+      log.info('[worker] vad=%s', vad_model.describe_backend())
+      log.info('[worker] classifier=%s', cls_model.describe_backend())
       log.info(f'[worker] models loaded, pid={os.getpid()}')
     except Exception as e:
       log.exception("model_load_failed")
@@ -57,11 +59,27 @@ class WorkerProcess(Process):
         update_xml = msg.get('update_xml', True)
 
         try:
+          def report_progress(step: str, message: str | None = None):
+            self.result_queue.put({
+              'type': 'progress',
+              'id': task_id,
+              'step': step,
+              'message': message,
+            })
+
+          timings: dict[str, float] = {}
+
+          def report_timing(name: str, elapsed_s: float):
+            timings[name] = timings.get(name, 0.0) + elapsed_s
+
           _maybe_delay(audio_path)  # ← Test delay hook
+          report_progress('loading', 'Loading audio and models')
           speechExtractor = SpeechExtractor(
             audio_path,
             vad_model=vad_model,
-            classification_model=cls_model
+            classification_model=cls_model,
+            progress_callback=report_progress,
+            timing_callback=report_timing,
           )
           if cut_mode == 'conservative':
             outcome = speechExtractor.speech_voice_preserve(out_path=output_path)
@@ -70,17 +88,25 @@ class WorkerProcess(Process):
           if outcome.ok:
             if update_xml and not outcome.bypassed:
               add_processed_program_to_xml(audio_path)
+            if timings:
+              log.info('[worker] timings=%s', {k: round(v, 3) for k, v in timings.items()})
+            report_progress('completed', outcome.message)
             self.result_queue.put({
               'type': 'done',
               'id': task_id,
               'bypassed': outcome.bypassed,
               'message': outcome.message,
+              'timings': timings,
             })
           else:
+            if timings:
+              log.info('[worker] timings=%s', {k: round(v, 3) for k, v in timings.items()})
+            report_progress('failed', outcome.message or 'processing failed')
             self.result_queue.put({
               'type': 'error',
               'id': task_id,
               'error': outcome.message or 'processing failed',
             })
         except Exception as e:
+          report_progress('failed', str(e))
           self.result_queue.put({'type': 'error', 'id': task_id, 'error': str(e)})
