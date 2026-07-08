@@ -18,13 +18,11 @@ def main() -> None:
   OUT_PATH.parent.mkdir(parents=True, exist_ok=True)
 
   model = tf.saved_model.load(str(MODEL_DIR))
-  concrete_fn = model.__call__.get_concrete_function(
-    tf.TensorSpec([None], tf.float32)
-  )
+  input_signature = [tf.TensorSpec([None], tf.float32)]
 
   tf2onnx.convert.from_function(
-    concrete_fn,
-    input_signature=None,
+    model.__call__,
+    input_signature=input_signature,
     opset=14,
     output_path=str(OUT_PATH),
   )
