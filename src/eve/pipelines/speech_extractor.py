@@ -80,7 +80,7 @@ class SpeechExtractor(AudioProcessor):
 
   def speech_music_separate(self, out_path=None) -> ProcessingOutcome:
     '''Aggressive mode: detect music segments, invert to keep speech-only parts.'''
-    self._report_progress('detecting_speech', 'Analyzing speech segments')
+    self._report_progress('detecting_music', 'Analyzing music segments')
     timestamps, wav = self.get_vad_timestamps()
     inverse = self.invert_timestamps(timestamps, wav)
     if len(inverse) == 0:
