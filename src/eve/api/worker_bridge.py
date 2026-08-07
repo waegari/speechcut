@@ -76,6 +76,9 @@ class WorkerBridge:
       current: int | None = None,
       total: int | None = None,
     ) -> None:
+      # Terminal progress events are applied by the done/error handlers below.
+      if step_name in (JobStatus.completed.value, JobStatus.failed.value):
+        return
       self.job_store.update_status(
         job_id,
         JobStatus(step_name),

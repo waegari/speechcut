@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import json
+import logging
 import shutil
 import sqlite3
 import uuid
@@ -10,6 +12,10 @@ from typing import Any
 from eve.api.schemas import CutMode, JobStatus
 from eve.config.settings import settings
 from eve.utils.timezone import now_kst, now_kst_iso, parse_kst
+
+log = logging.getLogger(__name__)
+
+SEGMENTS_FILENAME = 'segments.json'
 
 
 class JobStore:
@@ -64,6 +70,23 @@ class JobStore:
   def _now(self) -> str:
     return now_kst_iso()
 
+  def segments_path(self, job_id: str) -> Path:
+    return self.data_dir / job_id / SEGMENTS_FILENAME
+
+  def load_segments_payload(self, job_id: str) -> dict[str, Any] | None:
+    path = self.segments_path(job_id)
+    if not path.exists():
+      return None
+    try:
+      with path.open('r', encoding='utf-8') as fh:
+        data = json.load(fh)
+    except (OSError, json.JSONDecodeError) as exc:
+      log.warning('failed to load segments for job %s: %s', job_id, exc)
+      return None
+    if not isinstance(data, dict):
+      return None
+    return data
+
   def _row_to_dict(self, row: sqlite3.Row) -> dict[str, Any]:
     completed_at = parse_kst(row['completed_at']) if row['completed_at'] else None
     expires_at = None
@@ -72,6 +95,14 @@ class JobStore:
     unchanged = bool(row['unchanged']) if 'unchanged' in row.keys() else False
     result_message = row['result_message'] if 'result_message' in row.keys() else None
     status = self._normalize_status(row['status'], row['step'] if 'step' in row.keys() else None)
+    segments_payload = self.load_segments_payload(row['id'])
+    segments = None
+    source_duration = None
+    if segments_payload is not None:
+      raw_segments = segments_payload.get('segments')
+      segments = raw_segments if isinstance(raw_segments, list) else []
+      duration = segments_payload.get('source_duration')
+      source_duration = float(duration) if isinstance(duration, (int, float)) else None
     return {
       'job_id': row['id'],
       'status': status,
@@ -83,6 +114,8 @@ class JobStore:
       'input_filename': row['input_filename'],
       'input_path': row['input_path'],
       'output_path': row['output_path'],
+      'segments': segments,
+      'source_duration': source_duration,
       'unchanged': unchanged,
       'result_message': result_message,
       'error': row['error'],
@@ -191,6 +224,7 @@ class JobStore:
       JobStatus.loading.value,
       JobStatus.detecting_speech.value,
       JobStatus.detecting_music.value,
+      JobStatus.segments_ready.value,
       JobStatus.merging_segments.value,
       JobStatus.exporting.value,
     )

@@ -152,8 +152,16 @@ pm2 status   # name must be "eve-api", not "ecosystem.config..."
 
 | Field | Description |
 |-------|-------------|
-| `status` | `queued`, `loading`, `detecting_speech`, `detecting_music`, `merging_segments`, `exporting`, `completed`, or `failed` |
+| `status` | `queued`, `loading`, `detecting_speech`, `detecting_music`, `segments_ready`, `merging_segments`, `exporting`, `completed`, or `failed` |
 | `status_message` | Optional human-readable detail for the current `status` |
+| `segments` | Original-timeline intervals (`start`/`end` in seconds, `type`: `speech` / `music` / `non_speech`). `null` until detection finishes; present from `segments_ready` onward (including `completed`). May be `[]` for silence-only audio. |
+| `source_duration` | Source audio duration in seconds (for waveform display); `null` if unknown |
+
+Recommended status flow:
+
+`queued` → `loading` → `detecting_speech` → `detecting_music` → **`segments_ready`** → `merging_segments` → `exporting` → `completed`
+
+(`detecting_music` is aggressive-mode only. Bypass / unchanged jobs may still publish `segments` and pass through `segments_ready` before `completed`.)
 
 Status meaning for early stages:
 
@@ -162,6 +170,7 @@ Status meaning for early stages:
 | `loading` | Model prep / audio read into memory |
 | `detecting_speech` | Silero VAD; then in conservative mode, YAMNet Speech verification (with `%`) |
 | `detecting_music` | YAMNet music classification on non-speech gaps (aggressive mode, with `%`) |
+| `segments_ready` | Speech/music (or non-speech) intervals are ready; edit/export not finished yet. `segments` is required from this point. |
 
 | Field | Description |
 |-------|-------------|
@@ -174,6 +183,8 @@ Status meaning for early stages:
 | `error` | Set only when `status` is `failed` |
 
 Stage-based progress is the default. A numeric `%` is exposed during YAMNet classification loops (`detecting_music` for aggressive, Speech verification under `detecting_speech` for conservative), where the segment total is known.
+
+`GET /api/v1/jobs/{job_id}/download` returns **200** with the processed audio only when `status === completed`. While `segments_ready` / `merging_segments` / `exporting` (or any non-completed status), the API returns **409**.
 
 ### Inference backend settings
 

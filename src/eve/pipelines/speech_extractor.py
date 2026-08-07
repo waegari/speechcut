@@ -1,6 +1,11 @@
-import subprocess, logging, shutil, time
+import json
+import logging
+import shutil
+import subprocess
+import time
 from pathlib import Path
 from typing import Callable, Union
+
 import numpy as np
 import torch
 
@@ -11,6 +16,9 @@ from eve.utils.editing_metadata import get_new_filename
 from eve.utils.subproc import no_window_kwargs
 
 log = logging.getLogger(__name__)
+
+# Hold segments_ready long enough for typical status pollers to observe it.
+SEGMENTS_READY_HOLD_SECONDS = 1.0
 
 class SpeechExtractor(AudioProcessor):
   def __init__(
@@ -78,31 +86,151 @@ class SpeechExtractor(AudioProcessor):
       return audio_seg.detach().cpu().squeeze().numpy()
     return np.asarray(audio_seg, dtype=np.float32).squeeze()
 
+  def _source_duration_s(self, wav) -> float:
+    return round(len(wav) / self.processing_sr, 3)
+
+  def _segments_json_path(self) -> Path:
+    return self.source_audio_path.parent / 'segments.json'
+
+  def _build_covering_segments(
+    self,
+    labeled_segs: list[dict],
+    gap_type: str,
+    wav,
+  ) -> list[dict]:
+    '''Build adjacent, non-overlapping segments covering [0, len(wav)] in seconds.
+
+    If ``labeled_segs`` is empty (e.g. silence-only), returns an empty list.
+    '''
+    eof = len(wav)
+    if eof <= 0:
+      return []
+
+    sorted_segs = sorted(
+      (
+        {
+          'start': max(0, int(seg['start'])),
+          'end': min(eof, int(seg['end'])),
+          'type': seg['type'],
+        }
+        for seg in labeled_segs
+        if int(seg['end']) > int(seg['start'])
+      ),
+      key=lambda s: s['start'],
+    )
+    # Silence-only / no detections: empty array is the documented contract.
+    if not sorted_segs:
+      return []
+
+    merged_labeled: list[dict] = []
+    for seg in sorted_segs:
+      if not merged_labeled:
+        merged_labeled.append(dict(seg))
+        continue
+      prev = merged_labeled[-1]
+      if seg['start'] <= prev['end'] and seg['type'] == prev['type']:
+        prev['end'] = max(prev['end'], seg['end'])
+      elif seg['start'] < prev['end'] and seg['type'] != prev['type']:
+        # Prefer the earlier label for overlap; truncate the later segment.
+        seg = dict(seg)
+        seg['start'] = prev['end']
+        if seg['end'] <= seg['start']:
+          continue
+        merged_labeled.append(seg)
+      else:
+        merged_labeled.append(dict(seg))
+
+    result: list[dict] = []
+    cursor = 0
+    for seg in merged_labeled:
+      if seg['start'] > cursor:
+        result.append({'start': cursor, 'end': seg['start'], 'type': gap_type})
+      result.append({'start': seg['start'], 'end': seg['end'], 'type': seg['type']})
+      cursor = max(cursor, seg['end'])
+    if cursor < eof:
+      result.append({'start': cursor, 'end': eof, 'type': gap_type})
+
+    return [
+      {
+        'start': round(seg['start'] / self.processing_sr, 3),
+        'end': round(seg['end'] / self.processing_sr, 3),
+        'type': seg['type'],
+      }
+      for seg in result
+      if seg['end'] > seg['start']
+    ]
+
+  def _publish_segments(
+    self,
+    wav,
+    *,
+    labeled_segs: list[dict],
+    gap_type: str,
+    message: str = 'Speech segments detected',
+    hold: bool = True,
+  ) -> list[dict]:
+    '''Persist original-timeline segments and set status to segments_ready.'''
+    segments = self._build_covering_segments(labeled_segs, gap_type, wav)
+    payload = {
+      'source_duration': self._source_duration_s(wav),
+      'segments': segments,
+    }
+    path = self._segments_json_path()
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with path.open('w', encoding='utf-8') as fh:
+      json.dump(payload, fh, ensure_ascii=False)
+    log.info('published %d segments to %s', len(segments), path)
+
+    self._report_progress('segments_ready', message, 55, 100)
+    if hold and SEGMENTS_READY_HOLD_SECONDS > 0:
+      time.sleep(SEGMENTS_READY_HOLD_SECONDS)
+    return segments
+
   def speech_music_separate(self, out_path=None) -> ProcessingOutcome:
     '''Aggressive mode: detect music segments, invert to keep speech-only parts.'''
     timestamps, wav = self.get_vad_timestamps()
     inverse = self.invert_timestamps(timestamps, wav)
+
     if len(inverse) == 0:
       log.info('no non-speech gaps; bypassing with unchanged output')
+      # Whole file is speech-like on the original timeline (no music gaps).
+      labeled = [{'start': s['start'], 'end': s['end'], 'type': 'speech'} for s in timestamps]
+      if not labeled:
+        labeled = [{'start': 0, 'end': len(wav), 'type': 'speech'}] if len(wav) > 0 else []
+      self._publish_segments(wav, labeled_segs=labeled, gap_type='speech')
       return self._bypass_unchanged(out_path, NO_MUSIC_DETECTED_MESSAGE)
+
     self._report_progress('detecting_music', 'Classifying segments', 0, len(inverse))
     music_seg = self._measure('music_classification', self.sound_classification, inverse, wav, 'Music')
+
     if not music_seg:
       log.info('no music segments detected; bypassing with unchanged output')
+      labeled = [{'start': s['start'], 'end': s['end'], 'type': 'speech'} for s in timestamps]
+      self._publish_segments(wav, labeled_segs=labeled, gap_type='non_speech')
       return self._bypass_unchanged(out_path, NO_MUSIC_DETECTED_MESSAGE)
+
+    labeled = [{'start': s['start'], 'end': s['end'], 'type': 'music'} for s in music_seg]
+    self._publish_segments(wav, labeled_segs=labeled, gap_type='speech')
+
     self._report_progress('merging_segments', 'Preparing output segments')
     merged = self._measure('merge_segments', self.merge_segments, music_seg)
+
     if not merged:
       log.info('no music segments long enough after merge; bypassing with unchanged output')
       return self._bypass_unchanged(out_path, NO_MUSIC_DETECTED_MESSAGE)
+
     inversed_merged = self.invert_timestamps(merged, wav)
+
     if len(inversed_merged) == 0:
       log.debug('no speech only part in the audio file')
       return ProcessingOutcome(ok=False, message='no speech-only parts remain after music removal')
+
     if self.get_duration(inversed_merged) < 10:
       log.debug('speech only audio is too short to export')
       return ProcessingOutcome(ok=False, message='speech-only audio is too short to export')
+
     margin_added = self._measure('add_margins', self.add_margins, inversed_merged, wav)
+
     self._report_progress('exporting', 'Exporting processed audio')
     self._measure('ffmpeg_export', self.ffmpeg_concat_fade, margin_added, out_path=out_path)
     return ProcessingOutcome(ok=True)
@@ -110,10 +238,15 @@ class SpeechExtractor(AudioProcessor):
   def speech_voice_preserve(self, out_path=None) -> ProcessingOutcome:
     '''Conservative mode: VAD candidates → keep YAMNet Speech → fade connect.'''
     timestamps, wav = self.get_vad_timestamps()
+
     if len(timestamps) == 0:
       log.debug('no speech in the audio file')
+      # Silence-only: empty segments array (documented contract).
+      self._publish_segments(wav, labeled_segs=[], gap_type='non_speech', message='No speech segments')
       return ProcessingOutcome(ok=False, message='no speech segments found in the audio file')
+
     self._report_progress('detecting_speech', 'Verifying speech segments', 0, len(timestamps))
+
     speech_seg = self._measure(
       'speech_classification',
       self.sound_classification,
@@ -121,20 +254,35 @@ class SpeechExtractor(AudioProcessor):
       wav,
       'Speech',
     )
+
     if not speech_seg:
       log.debug('no speech confirmed by classifier')
+      self._publish_segments(
+        wav,
+        labeled_segs=[],
+        gap_type='non_speech',
+        message='No speech segments confirmed',
+      )
       return ProcessingOutcome(ok=False, message='no speech segments confirmed by classifier')
+
+    labeled = [{'start': s['start'], 'end': s['end'], 'type': 'speech'} for s in speech_seg]
+    self._publish_segments(wav, labeled_segs=labeled, gap_type='non_speech')
+
     self._report_progress('merging_segments', 'Preparing output segments')
     merged = self._measure('merge_segments', self.merge_segments, speech_seg)
+
     if len(merged) == 0:
       log.debug('no speech segments long enough to export')
       return ProcessingOutcome(ok=False, message='no speech segments long enough to export')
+
     if self.get_duration(merged) < 10:
       log.debug('speech only audio is too short to export')
       return ProcessingOutcome(ok=False, message='speech-only audio is too short to export')
+
     margin_added = self._measure('add_margins', self.add_margins, merged, wav)
     self._report_progress('exporting', 'Exporting processed audio')
     self._measure('ffmpeg_export', self.ffmpeg_concat_fade, margin_added, out_path=out_path)
+
     return ProcessingOutcome(ok=True)
 
   def _bypass_unchanged(self, out_path, message: str) -> ProcessingOutcome:

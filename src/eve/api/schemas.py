@@ -16,10 +16,23 @@ class JobStatus(str, Enum):
   loading = 'loading'
   detecting_speech = 'detecting_speech'
   detecting_music = 'detecting_music'
+  segments_ready = 'segments_ready'
   merging_segments = 'merging_segments'
   exporting = 'exporting'
   completed = 'completed'
   failed = 'failed'
+
+
+class SegmentType(str, Enum):
+  speech = 'speech'
+  music = 'music'
+  non_speech = 'non_speech'
+
+
+class JobSegment(BaseModel):
+  start: float = Field(description='Segment start on the original (pre-edit) timeline, in seconds')
+  end: float = Field(description='Segment end on the original (pre-edit) timeline, in seconds')
+  type: SegmentType = Field(description='speech / music / non_speech')
 
 
 class JobCreateResponse(BaseModel):
@@ -37,6 +50,18 @@ class JobStatusResponse(BaseModel):
   progress_total: int | None = None
   cut_mode: CutMode
   input_filename: str
+  segments: list[JobSegment] | None = Field(
+    default=None,
+    description=(
+      'Original-timeline speech/music/non_speech intervals in seconds. '
+      'Present from segments_ready onward (including merging/exporting/completed). '
+      'Null until detection finishes. May be an empty list for silence-only audio.'
+    ),
+  )
+  source_duration: float | None = Field(
+    default=None,
+    description='Source audio duration in seconds (for waveform display). Null if unknown.',
+  )
   unchanged: bool = False
   result_message: str | None = None
   error: str | None = None
