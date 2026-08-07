@@ -53,9 +53,10 @@ class JobStatusResponse(BaseModel):
   segments: list[JobSegment] | None = Field(
     default=None,
     description=(
-      'Original-timeline speech/music/non_speech intervals in seconds. '
-      'Present from segments_ready onward (including merging/exporting/completed). '
-      'Null until detection finishes. May be an empty list for silence-only audio.'
+      'Original-timeline speech/music/non_speech intervals in seconds, '
+      'after merge_segments (coalesced; not raw VAD fragments). '
+      'Present from segments_ready onward (including exporting/completed). '
+      'Null until merging finishes. May be an empty list for silence-only audio.'
     ),
   )
   source_duration: float | None = Field(

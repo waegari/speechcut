@@ -154,14 +154,14 @@ pm2 status   # name must be "eve-api", not "ecosystem.config..."
 |-------|-------------|
 | `status` | `queued`, `loading`, `detecting_speech`, `detecting_music`, `segments_ready`, `merging_segments`, `exporting`, `completed`, or `failed` |
 | `status_message` | Optional human-readable detail for the current `status` |
-| `segments` | Original-timeline intervals (`start`/`end` in seconds, `type`: `speech` / `music` / `non_speech`). `null` until detection finishes; present from `segments_ready` onward (including `completed`). May be `[]` for silence-only audio. |
+| `segments` | Original-timeline intervals (`start`/`end` in seconds, `type`: `speech` / `music` / `non_speech`) **after merge**. `null` until merging finishes; present from `segments_ready` onward (including `completed`). May be `[]` for silence-only audio. |
 | `source_duration` | Source audio duration in seconds (for waveform display); `null` if unknown |
 
 Recommended status flow:
 
-`queued` → `loading` → `detecting_speech` → `detecting_music` → **`segments_ready`** → `merging_segments` → `exporting` → `completed`
+`queued` → `loading` → `detecting_speech` → `detecting_music` → `merging_segments` → **`segments_ready`** → `exporting` → `completed`
 
-(`detecting_music` is aggressive-mode only. Bypass / unchanged jobs may still publish `segments` and pass through `segments_ready` before `completed`.)
+(`detecting_music` is aggressive-mode only. `segments` are published **after** `merge_segments`, so intervals are coalesced — not raw VAD fragments. Bypass / unchanged jobs may still publish merged `segments` and pass through `segments_ready` before `completed`.)
 
 Status meaning for early stages:
 
@@ -170,7 +170,8 @@ Status meaning for early stages:
 | `loading` | Model prep / audio read into memory |
 | `detecting_speech` | Silero VAD; then in conservative mode, YAMNet Speech verification (with `%`) |
 | `detecting_music` | YAMNet music classification on non-speech gaps (aggressive mode, with `%`) |
-| `segments_ready` | Speech/music (or non-speech) intervals are ready; edit/export not finished yet. `segments` is required from this point. |
+| `merging_segments` | Coalesce nearby intervals (`MERGE_GAP_SECONDS` / `MIN_SPEECH_S`) |
+| `segments_ready` | Merged speech/music (or non_speech) intervals are ready; edit/export not finished yet. `segments` is required from this point. |
 
 | Field | Description |
 |-------|-------------|

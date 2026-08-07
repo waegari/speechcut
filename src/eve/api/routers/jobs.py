@@ -63,9 +63,10 @@ async def create_job(
   response_model=JobStatusResponse,
   summary='Get job status',
   description=(
-    'Poll job progress. After speech/music detection finishes, status becomes '
-    '`segments_ready` and `segments` / `source_duration` are populated. '
-    'Those fields remain on subsequent polls through merging, exporting, and completed. '
+    'Poll job progress. After detection and segment merging finish, status becomes '
+    '`segments_ready` and `segments` / `source_duration` are populated '
+    '(merged intervals on the original timeline, not raw VAD fragments). '
+    'Those fields remain on subsequent polls through exporting and completed. '
     'Silence-only audio may yield an empty `segments` array.'
   ),
 )

@@ -193,10 +193,10 @@ class SpeechExtractor(AudioProcessor):
 
     if len(inverse) == 0:
       log.info('no non-speech gaps; bypassing with unchanged output')
-      # Whole file is speech-like on the original timeline (no music gaps).
-      labeled = [{'start': s['start'], 'end': s['end'], 'type': 'speech'} for s in timestamps]
-      if not labeled:
-        labeled = [{'start': 0, 'end': len(wav), 'type': 'speech'}] if len(wav) > 0 else []
+      merged_speech = self.merge_segments(timestamps) if timestamps else []
+      labeled = [{'start': s['start'], 'end': s['end'], 'type': 'speech'} for s in merged_speech]
+      if not labeled and len(wav) > 0:
+        labeled = [{'start': 0, 'end': len(wav), 'type': 'speech'}]
       self._publish_segments(wav, labeled_segs=labeled, gap_type='speech')
       return self._bypass_unchanged(out_path, NO_MUSIC_DETECTED_MESSAGE)
 
@@ -205,18 +205,19 @@ class SpeechExtractor(AudioProcessor):
 
     if not music_seg:
       log.info('no music segments detected; bypassing with unchanged output')
-      labeled = [{'start': s['start'], 'end': s['end'], 'type': 'speech'} for s in timestamps]
+      merged_speech = self.merge_segments(timestamps) if timestamps else []
+      labeled = [{'start': s['start'], 'end': s['end'], 'type': 'speech'} for s in merged_speech]
       self._publish_segments(wav, labeled_segs=labeled, gap_type='non_speech')
       return self._bypass_unchanged(out_path, NO_MUSIC_DETECTED_MESSAGE)
-
-    labeled = [{'start': s['start'], 'end': s['end'], 'type': 'music'} for s in music_seg]
-    self._publish_segments(wav, labeled_segs=labeled, gap_type='speech')
 
     self._report_progress('merging_segments', 'Preparing output segments')
     merged = self._measure('merge_segments', self.merge_segments, music_seg)
 
     if not merged:
       log.info('no music segments long enough after merge; bypassing with unchanged output')
+      merged_speech = self.merge_segments(timestamps) if timestamps else []
+      labeled = [{'start': s['start'], 'end': s['end'], 'type': 'speech'} for s in merged_speech]
+      self._publish_segments(wav, labeled_segs=labeled, gap_type='non_speech')
       return self._bypass_unchanged(out_path, NO_MUSIC_DETECTED_MESSAGE)
 
     inversed_merged = self.invert_timestamps(merged, wav)
@@ -224,6 +225,10 @@ class SpeechExtractor(AudioProcessor):
     if len(inversed_merged) == 0:
       log.debug('no speech only part in the audio file')
       return ProcessingOutcome(ok=False, message='no speech-only parts remain after music removal')
+
+    # Publish AFTER merge: merged music + speech gaps on the original timeline.
+    labeled = [{'start': s['start'], 'end': s['end'], 'type': 'music'} for s in merged]
+    self._publish_segments(wav, labeled_segs=labeled, gap_type='speech')
 
     if self.get_duration(inversed_merged) < 10:
       log.debug('speech only audio is too short to export')
@@ -265,15 +270,17 @@ class SpeechExtractor(AudioProcessor):
       )
       return ProcessingOutcome(ok=False, message='no speech segments confirmed by classifier')
 
-    labeled = [{'start': s['start'], 'end': s['end'], 'type': 'speech'} for s in speech_seg]
-    self._publish_segments(wav, labeled_segs=labeled, gap_type='non_speech')
-
     self._report_progress('merging_segments', 'Preparing output segments')
     merged = self._measure('merge_segments', self.merge_segments, speech_seg)
 
     if len(merged) == 0:
       log.debug('no speech segments long enough to export')
+      self._publish_segments(wav, labeled_segs=[], gap_type='non_speech', message='No speech segments')
       return ProcessingOutcome(ok=False, message='no speech segments long enough to export')
+
+    # Publish AFTER merge so portal/ASR get coalesced speech intervals.
+    labeled = [{'start': s['start'], 'end': s['end'], 'type': 'speech'} for s in merged]
+    self._publish_segments(wav, labeled_segs=labeled, gap_type='non_speech')
 
     if self.get_duration(merged) < 10:
       log.debug('speech only audio is too short to export')
